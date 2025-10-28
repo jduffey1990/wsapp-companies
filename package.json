@@ -1,0 +1,59 @@
+{
+  "name": "wsapp-companies-microservice",
+  "version": "1.0.0",
+  "description": "wsapp companies microservice",
+  "main": "index.js",
+  "scripts": {
+    "start": "node dist/app.js",
+    "build": "tsc",
+    "dev": "nodemon --exec ts-node src/app.ts",
+    "migrate:create": "dotenv -e .env -- node-pg-migrate create -m src/migrations",
+    "migrate:up": "dotenv -e .env -- node-pg-migrate up -m src/migrations",
+    "migrate:down": "dotenv -e .env -- node-pg-migrate down -m src/migrations",
+    "migrate:reset": "dotenv -e .env -- node-pg-migrate reset -m src/migrations",
+    "seed:users": "dotenv -e .env -- npm run build && node dist/scripts/seedUsers.js",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "test:verbose": "jest --verbose"
+  },
+  "keywords": [
+    "node",
+    "data",
+    "analysis"
+  ],
+  "author": "Jordan Duffey",
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "@types/bcrypt": "^6.0.0",
+    "@types/jest": "^29.5.14",
+    "@types/mongodb": "^4.0.7",
+    "@types/node": "^22.12.0",
+    "@types/pg": "^8.15.5",
+    "cross-env": "^7.0.3",
+    "dotenv-cli": "^10.0.0",
+    "jest": "^29.7.0",
+    "node-pg-migrate": "^8.0.3",
+    "nodemon": "^3.1.9",
+    "ts-jest": "^29.2.5",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.7.3"
+  },
+  "dependencies": {
+    "@hapi/basic": "^7.0.2",
+    "@hapi/cookie": "^12.0.1",
+    "@hapi/hapi": "^21.3.12",
+    "@hapi/joi": "^17.1.1",
+    "@hapi/jwt": "^3.2.0",
+    "@types/express": "^5.0.0",
+    "@vendia/serverless-express": "^4.12.6",
+    "axios": "^1.12.2",
+    "bcrypt": "^5.1.1",
+    "dotenv": "^16.4.7",
+    "ioredis": "^5.8.2",
+    "mongodb": "^6.13.0",
+    "pg": "^8.16.3",
+    "stripe": "^17.7.0",
+    "vendia": "^0.0.1"
+  }
+}
