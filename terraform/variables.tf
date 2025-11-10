@@ -16,7 +16,7 @@ variable "github_repo" {
 variable "github_owner" {
   description = "GitHub account/org that owns the repo"
   type        = string
-  default     = "jduffey"
+  default     = "jduffey1990"
 }
 
 variable "github_branch" {
@@ -63,7 +63,7 @@ variable "aws_account_id" {
 variable "lambda_runtime" {
   description = "Lambda function runtime"
   type        = string
-  default     = Node.js 22.x
+  default     = "nodejs22.x"
 }
 
 variable "lambda_memory" {
@@ -80,6 +80,24 @@ variable "lambda_timeout" {
 
 variable "github_token" {
   description = "GitHub personal access token for CodePipeline"
+  type        = string
+  sensitive   = true
+}
+
+variable "database_url" {
+  description = "PostgreSQL connection string"
+  type        = string
+  sensitive   = true
+}
+
+variable "jwt_secret" {
+  description = "JWT secret for authentication"
+  type        = string
+  sensitive   = true
+}
+
+variable "recaptcha_secret_key" {
+  description = "reCAPTCHA secret key"
   type        = string
   sensitive   = true
 }

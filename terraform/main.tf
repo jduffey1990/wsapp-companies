@@ -2,16 +2,6 @@
 # Main infrastructure resources for companies microservice
 
 # Configure AWS provider
-provider "aws" {
-  region = var.aws_region
-  
-  default_tags {
-    tags = {
-      Project   = var.project
-      ManagedBy = "terraform"
-    }
-  }
-}
 
 # Local variables for computed values
 locals {
@@ -38,7 +28,7 @@ locals {
 resource "aws_lambda_function" "main" {
   function_name = local.lambda_name
   runtime       = var.lambda_runtime
-  handler       = "index.handler"
+  handler       = "dist/app.handler"
   role          = aws_iam_role.lambda_execution.arn
   
   # Placeholder code - actual code deployed via CodePipeline
@@ -54,6 +44,10 @@ resource "aws_lambda_function" "main" {
       ENVIRONMENT  = var.environment
       CACHE_NAME   = local.cache_name
       PROJECT      = var.project
+      NODE_ENV             = "production"
+      DATABASE_URL         = var.database_url
+      JWT_SECRET           = var.jwt_secret
+      RECAPTCHA_SECRET_KEY = var.recaptcha_secret_key
     }
   }
   
@@ -197,6 +191,12 @@ resource "aws_codebuild_project" "main" {
     environment_variable {
       name  = "AWS_DEFAULT_REGION"
       value = var.aws_region
+    }
+
+    environment_variable {
+      name  = "DATABASE_URL"
+      value = var.database_url
+      type  = "PARAMETER_STORE"   #better security than "PLAINTEXT"
     }
   }
   

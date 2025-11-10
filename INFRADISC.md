@@ -167,9 +167,7 @@ wsapp-companies/                    # GitHub repo
 ```
 
 **Same structure repeated in:**
-- `wsapp-users/terraform/`
 - `wsapp-companies/terraform/` (current work)
-- `brandora-verify/terraform/` (future)
 
 ### Key Terraform Concepts Used
 
