@@ -1,7 +1,7 @@
 // src/scripts/seedCompanies.ts
+import 'dotenv/config';
 import { PostgresService } from '../controllers/postgres.service';
 import type { Company, CompanyCode } from '../models/company';
-import 'dotenv/config';
 
 function rowToCompany(row: any): Company {
   return {
@@ -21,7 +21,6 @@ function rowToCompanyCode(row: any): CompanyCode {
     code: row.code,
     createdAt: row.created_at,
     expiresAt: row.expires_at,
-    deletedAt: row.deleted_at ?? null,
   };
 }
 
@@ -56,7 +55,7 @@ async function seedCompanies() {
       INSERT INTO company_codes (company_id, code, expires_at)
       VALUES ($1, $2, $3)
       ON CONFLICT (code) DO NOTHING
-      RETURNING id, company_id, code, created_at, expires_at, deleted_at
+      RETURNING id, company_id, code, created_at, expires_at
     `;
 
     const { rows: codeRows } = await db.query(codeSql, [company.id, 'ACME2024', expiresAt]);

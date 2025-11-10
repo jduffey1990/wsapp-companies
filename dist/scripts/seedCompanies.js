@@ -10,8 +10,8 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 // src/scripts/seedCompanies.ts
-const postgres_service_1 = require("../controllers/postgres.service");
 require("dotenv/config");
+const postgres_service_1 = require("../controllers/postgres.service");
 function rowToCompany(row) {
     var _a;
     return {
@@ -24,14 +24,12 @@ function rowToCompany(row) {
     };
 }
 function rowToCompanyCode(row) {
-    var _a;
     return {
         id: row.id,
         companyId: row.company_id,
         code: row.code,
         createdAt: row.created_at,
         expiresAt: row.expires_at,
-        deletedAt: (_a = row.deleted_at) !== null && _a !== void 0 ? _a : null,
     };
 }
 function seedCompanies() {
@@ -60,7 +58,7 @@ function seedCompanies() {
       INSERT INTO company_codes (company_id, code, expires_at)
       VALUES ($1, $2, $3)
       ON CONFLICT (code) DO NOTHING
-      RETURNING id, company_id, code, created_at, expires_at, deleted_at
+      RETURNING id, company_id, code, created_at, expires_at
     `;
             const { rows: codeRows } = yield db.query(codeSql, [company.id, 'ACME2024', expiresAt]);
             if (codeRows.length === 0) {
