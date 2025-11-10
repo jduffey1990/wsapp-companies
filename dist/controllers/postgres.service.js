@@ -42,7 +42,7 @@ class PostgresService {
                 port: Number(process.env.PGPORT || 5432),
                 user: process.env.PGUSER || 'postgres',
                 password: process.env.PGPASSWORD || undefined,
-                database: process.env.PGDATABASE || 'busterbrackets',
+                database: process.env.PGDATABASE || 'wsapp-companies',
             };
         this.pool = new pg_1.Pool(Object.assign(Object.assign({}, base), config));
         this.pool.on('error', (err) => {
@@ -59,7 +59,10 @@ class PostgresService {
         return __awaiter(this, void 0, void 0, function* () {
             if (!this.pool)
                 throw new Error('PostgresService not connected. Call connect() first.');
-            return this.pool.query(text, params);
+            const start = Date.now();
+            const result = yield this.pool.query(text, params);
+            console.log(`Query took ${Date.now() - start}ms - pool: ${this.pool.totalCount} total, ${this.pool.idleCount} idle, ${this.pool.waitingCount} waiting`);
+            return result;
         });
     }
     /**

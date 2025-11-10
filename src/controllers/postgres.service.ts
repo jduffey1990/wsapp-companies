@@ -38,7 +38,7 @@ export class PostgresService {
             port: Number(process.env.PGPORT || 5432),
             user: process.env.PGUSER || 'postgres',
             password: process.env.PGPASSWORD || undefined,
-            database: process.env.PGDATABASE || 'busterbrackets',
+            database: process.env.PGDATABASE || 'wsapp-companies',
           };
 
     this.pool = new Pool({ ...base, ...config });

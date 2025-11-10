@@ -1,0 +1,85 @@
+# variables.tf
+# Input parameters for the companies microservice infrastructure
+
+variable "service_name" {
+  description = "Name of the microservice"
+  type        = string
+  default     = "companies"
+}
+
+variable "github_repo" {
+  description = "GitHub repository name"
+  type        = string
+  default     = "wsapp-companies"
+}
+
+variable "github_owner" {
+  description = "GitHub account/org that owns the repo"
+  type        = string
+  default     = "jduffey"
+}
+
+variable "github_branch" {
+  description = "GitHub branch to deploy from"
+  type        = string
+  default     = "main"
+}
+
+variable "project" {
+  description = "Project name for tagging"
+  type        = string
+  default     = "brandora"
+}
+
+variable "owner" {
+  description = "Owner tag for resources"
+  type        = string
+  default     = "jduffey"
+}
+
+variable "environment" {
+  description = "Environment (dev, staging, prod)"
+  type        = string
+  default     = "prod"
+  
+  validation {
+    condition     = contains(["dev", "staging", "prod"], var.environment)
+    error_message = "Environment must be dev, staging, or prod."
+  }
+}
+
+variable "aws_region" {
+  description = "AWS region to deploy to"
+  type        = string
+  default     = "us-east-2"
+}
+
+variable "aws_account_id" {
+  description = "AWS account ID"
+  type        = string
+  default     = "181410801616"
+}
+
+variable "lambda_runtime" {
+  description = "Lambda function runtime"
+  type        = string
+  default     = Node.js 22.x
+}
+
+variable "lambda_memory" {
+  description = "Lambda memory in MB"
+  type        = number
+  default     = 512
+}
+
+variable "lambda_timeout" {
+  description = "Lambda timeout in seconds"
+  type        = number
+  default     = 30
+}
+
+variable "github_token" {
+  description = "GitHub personal access token for CodePipeline"
+  type        = string
+  sensitive   = true
+}

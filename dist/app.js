@@ -14,13 +14,12 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.handler = void 0;
 // app.ts
-const dotenv_1 = __importDefault(require("dotenv"));
 const hapi_1 = __importDefault(require("@hapi/hapi"));
 const serverless_express_1 = __importDefault(require("@vendia/serverless-express"));
-const postgres_service_1 = require("./controllers/postgres.service");
+const dotenv_1 = __importDefault(require("dotenv"));
 const authService_1 = require("./controllers/authService");
-const loginRoutes_1 = require("./routes/loginRoutes");
-const userRoutes_1 = require("./routes/userRoutes");
+const postgres_service_1 = require("./controllers/postgres.service");
+const companyRoutes_1 = require("./routes/companyRoutes");
 dotenv_1.default.config();
 console.log('[DB cfg]', {
     host: process.env.PGHOST,
@@ -40,9 +39,7 @@ let cachedLambdaHandler;
 function asServerRoutes(routes) { return routes; }
 // If your imported route arrays are NOT typed, you can fix them here:
 const allRoutes = asServerRoutes([
-    ...userRoutes_1.userRoutes,
-    ...loginRoutes_1.homeRoutes,
-    ...loginRoutes_1.loginRoutes, // uncomment if you have it
+    ...companyRoutes_1.companyRoutes
 ]);
 function buildServer() {
     return __awaiter(this, void 0, void 0, function* () {
@@ -61,7 +58,11 @@ function buildServer() {
         });
         // Connect DB (once per cold start)
         const dbService = postgres_service_1.PostgresService.getInstance();
-        yield dbService.connect();
+        yield dbService.connect({
+            max: 1, // Lambda only needs 1 connection
+            idleTimeoutMillis: 120000, // 2 minutes (longer than Lambda timeout)
+            connectionTimeoutMillis: 5000, // 5 second timeout
+        });
         yield server.register(require('@hapi/jwt'));
         server.auth.strategy('jwt', 'jwt', {
             keys: jwtSecret,
@@ -94,15 +95,27 @@ function startLocal() {
 }
 // ---------- Lambda entry ----------
 const handler = (event, context) => __awaiter(void 0, void 0, void 0, function* () {
-    if (!cachedLambdaHandler) {
-        const server = yield buildServer();
-        const listener = toRequestListener(server);
-        cachedLambdaHandler = (0, serverless_express_1.default)({
-            app: listener,
-            eventSourceName: 'AWS_API_GATEWAY_V2' // <-- Add this!
-        });
+    try {
+        if (!cachedLambdaHandler) {
+            const server = yield buildServer();
+            const listener = toRequestListener(server);
+            cachedLambdaHandler = (0, serverless_express_1.default)({
+                app: listener,
+                eventSourceName: 'AWS_API_GATEWAY_V2'
+            });
+        }
+        return yield cachedLambdaHandler(event, context);
     }
-    return cachedLambdaHandler(event, context);
+    catch (error) {
+        console.error('Lambda Error:', error);
+        if (error instanceof Error) {
+            console.error('Stack:', error.stack);
+        }
+        else {
+            console.error('Non-Error thrown:', error);
+        }
+        throw error;
+    }
 });
 exports.handler = handler;
 // ---------- Entrypoint ----------

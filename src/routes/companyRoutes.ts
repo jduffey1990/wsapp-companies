@@ -1,257 +1,285 @@
-// src/routes/users.ts
+// src/routes/companies.ts
 import { Request, ResponseToolkit, ServerRoute } from '@hapi/hapi';
-import axios from 'axios';
-import bcrypt from 'bcrypt';
+import { CompanyService } from '../controllers/companyService';
 
-import { UserService } from '../controllers/companyService';
-import type { UserSafe } from '../models/company'; // our TS model (id is string UUID)
-
-
-// Initialize Stripe (if needed at some point)
-// const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
-//   apiVersion: '2025-02-24.acacia', // if this blows up, omit apiVersion to use pkg default
-// });
-async function verifyCaptcha(token: string | null, minScore = 0.5): Promise<{ success: boolean; score: number | null }> {
-  if (!token) {
-    console.warn('No CAPTCHA token provided');
-    // During development, you can allow this
-    return { success: true, score: null };
-  }
-
-  const secretKey = process.env.RECAPTCHA_SECRET_KEY;
-  if (!secretKey) {
-    console.warn('RECAPTCHA_SECRET_KEY not set - skipping verification');
-    return { success: true, score: null };
-  }
-
-  try {
-    const response = await axios.post(
-      'https://www.google.com/recaptcha/api/siteverify',
-      null,
-      {
-        params: {
-          secret: secretKey,
-          response: token,
-        },
-      }
-    );
-
-    const { success, score, action } = response.data;
-
-    if (!success) {
-      throw new Error('CAPTCHA verification failed');
-    }
-
-    if (score < minScore) {
-      throw new Error(`CAPTCHA score too low: ${score}`);
-    }
-
-    console.log(`CAPTCHA verified: score=${score}, action=${action}`);
-    return { success: true, score };
-  } catch (error: any) {
-    console.error('CAPTCHA verification error:', error.message);
-    throw error;
-  }
-}
-
-
-export const companyRoutes : ServerRoute[] = [
-  // find all them hoes
-  { 
-    method: 'GET', 
-    path: '/users', 
-    handler: (request: Request, h: ResponseToolkit) => { 
-      return UserService.findAllUsers() 
-    }, 
-    options: { auth: false  } 
+export const companyRoutes: ServerRoute[] = [
+  // Get all companies
+  {
+    method: 'GET',
+    path: '/companies',
+    handler: (request: Request, h: ResponseToolkit) => {
+      return CompanyService.findAllCompanies();
+    },
+    options: { auth: 'jwt' },
   },
 
   // Simple health check
   {
     method: 'GET',
-    path: '/ping-user',
+    path: '/ping-company',
     handler: (_request: Request, h: ResponseToolkit) => {
-      return h.response('pinged backend').code(200);
+      return h.response('pinged company service').code(200);
+    },
+    options: { auth: 'jwt' },
+  },
+
+  // Get a single company by id
+  {
+    method: 'GET',
+    path: '/get-company',
+    handler: async (request: Request, h: ResponseToolkit) => {
+      const id = request.query.id as string | undefined;
+      if (!id) return h.response('Company ID is required').code(400);
+
+      if (!/^[0-9a-fA-F-]{36}$/.test(id)) {
+        return h.response('Invalid company id format').code(400);
+      }
+
+      const company = await CompanyService.findCompanyById(id);
+      if (!company) return h.response({ error: 'Company not found' }).code(404);
+      return h.response(company).code(200);
+    },
+    options: { auth: 'jwt' },
+  },
+
+  // Update a company
+  {
+    method: 'PATCH',
+    path: '/edit-company',
+    handler: async (request: Request, h: ResponseToolkit) => {
+      try {
+        const payload = request.payload as {
+          companyId: string;
+          name?: string;
+          status?: string;
+        };
+
+        if (!payload.companyId) {
+          return h.response({ error: 'Company ID is required' }).code(400);
+        }
+
+        const updates: any = {};
+        if (payload.name) updates.name = payload.name;
+        if (payload.status) updates.status = payload.status;
+
+        const updatedCompany = await CompanyService.updateCompany(
+          payload.companyId,
+          updates
+        );
+        return h.response(updatedCompany).code(200);
+      } catch (error: any) {
+        return h.response({ error: error.message }).code(500);
+      }
+    },
+    options: { auth: 'jwt' },
+  },
+
+  // Create a new company
+  {
+    method: 'POST',
+    path: '/create-company',
+    handler: async (request: Request, h: ResponseToolkit) => {
+      try {
+        const payload = request.payload as { name: string; status?: string };
+
+        if (!payload.name) {
+          return h.response({ error: 'Company name is required' }).code(400);
+        }
+
+        const newCompany = await CompanyService.createCompany({
+          name: payload.name,
+          status: payload.status ?? 'active',
+        });
+
+        return h.response(newCompany).code(201);
+      } catch (error: any) {
+        if (error.message.includes('duplicate key')) {
+          return h.response({ error: 'Company name already exists' }).code(409);
+        }
+        return h.response({ error: error.message }).code(500);
+      }
     },
     options: { auth: false },
   },
 
-  // Get a single user by id (UUID) - requires auth by default;
+  // ============== COMPANY CODE ROUTES ==============
+
+  /**
+   * Get or create an invite code for the user's company.
+   * Frontend flow: User clicks "Get Invite Code" button in settings.
+   * Returns existing active code or creates a new one (24hr expiry).
+   */
   {
     method: 'GET',
-    path: '/get-user',
-    handler: async (request: Request, h: ResponseToolkit) => {
-      const id = request.query.id as string | undefined;
-      if (!id) return h.response('User ID is required').code(400);
-
-      // Optional: basic UUID sanity check
-      if (!/^[0-9a-fA-F-]{36}$/.test(id)) {
-        return h.response('Invalid user id format').code(400);
-      }
-
-      const user = await UserService.findUserById(id);
-      if (!user) return h.response({ error: 'User not found' }).code(404);
-      return h.response(user).code(200);
-    },
-    options: { auth: 'jwt' },
-  },
-
-  // Update the authenticated user's name/email
-  {
-    method: 'PATCH',
-    path: '/edit-user',
+    path: '/company-code',
     handler: async (request: Request, h: ResponseToolkit) => {
       try {
-        const authUser = request.auth.credentials as UserSafe | undefined;
-        if (!authUser?.id) return h.response({ error: 'Unauthorized' }).code(401);
-
-        const payload = request.payload as Partial<{
-          name: string;
-          email: string;
-          status: string;
-          companyId: string | null;
-          // Or support firstName/lastName separately:
-          firstName: string;
-          lastName: string;
-        }>;
-
-        // If firstName/lastName provided, convert to name
-        const updates: any = { ...payload };
-        if (payload.firstName || payload.lastName) {
-          const firstName = payload.firstName || authUser.name.split(' ')[0] || '';
-          const lastName = payload.lastName || authUser.name.split(' ').slice(1).join(' ') || '';
-          updates.name = `${firstName} ${lastName}`.trim();
-          delete updates.firstName;
-          delete updates.lastName;
+        const authUser = request.auth.credentials as any;
+        
+        if (!authUser?.companyId) {
+          return h.response({ error: 'User not associated with a company' }).code(400);
         }
 
-        const updatedUser = await UserService.updateUser(authUser.id, updates);
-        return h.response(updatedUser).code(200);
-      } catch (error: any) {
-        return h.response({ error: error.message }).code(500);
-      }
-    },
-    options: { auth: 'jwt' },
-  },
-
-  // Update the authenticated user's name/email
-  {
-    method: 'PATCH',
-    path: '/activate-user',
-    handler: async (request: Request, h: ResponseToolkit) => {
-      try {
-        // Your JWT validate step returns credentials = UserSafe
-        const authUser = request.auth.credentials as UserSafe | undefined;
-        if (!authUser?.id) return h.response({ error: 'Unauthorized' }).code(401);
-
-        const updatedUser = await UserService.activateUser(authUser.id);
-        return h.response(updatedUser).code(200);
-      } catch (error: any) {
-        return h.response({ error: error.message }).code(500);
-      }
-    },
-    options: { auth: 'jwt' },
-  },
-
-  // Return the current session's user (already validated by @hapi/jwt)
-  {
-    method: 'GET',
-    path: '/session',
-    handler: async (request: Request) => {
-      const user = request.auth.credentials as UserSafe | undefined;
-      return { user };
-    },
-    options: { auth: 'jwt' },
-  },
-
-  // Create a new user (public signup)
-  {
-    method: 'POST',
-    path: '/create-user',
-    handler: async (request: Request, h: ResponseToolkit) => {
-      const startTime = Date.now();
-      
-      try {
-        const payload = request.payload as any;
+        const code = await CompanyService.getOrCreateCompanyCode(authUser.companyId);
         
-        console.log('Start CAPTCHA verification');
-        const captchaStart = Date.now();
-        await verifyCaptcha(payload.captchaToken, 0.5);
-        console.log(`CAPTCHA took: ${Date.now() - captchaStart}ms`);
-        
-        // ... validation ...
-
-        const name =
-          payload.name?.toString().trim() ||
-          `${payload.firstName ?? ''} ${payload.lastName ?? ''}`.trim();
-        
-        if (!payload.email || !payload.password || !name) {
-          return h
-            .response({ error: 'email, password, and name are required' })
-            .code(400);
-        }
-        
-        console.log('Start password hash');
-        const hashStart = Date.now();
-        const passwordHash = await bcrypt.hash(payload.password, 8);
-        console.log(`Hash took: ${Date.now() - hashStart}ms`);
-        
-        console.log('Start DB insert');
-        const dbStart = Date.now();
-        const newUser = await UserService.createUser({
-          email: payload.email.toLowerCase(),
-          name,
-          passwordHash,
-          companyId: payload.companyId ?? null,
-          status: "inactive"
-        });
-        console.log(`DB insert took: ${Date.now() - dbStart}ms`);
-        
-        console.log(`Total handler time: ${Date.now() - startTime}ms`);
-        return h.response(newUser).code(201);
-      } catch (error: any) {
-        console.log(`Total time before error: ${Date.now() - startTime}ms`);
-        // ... error handling
-      }
-    },
-  },
-
-  // Return the current session's user (already validated by @hapi/jwt)
-  {
-    method: 'DELETE',
-    path: '/hard-delete/{userId}',
-    handler: async (request: Request, h: ResponseToolkit) => {
-      try {
-        const { userId } = request.params;
-        
-        // ⚠️ SAFETY CHECK: Only allow in development
-        if (process.env.NODE_ENV === 'production') {
-          return h.response({ error: 'Hard delete not allowed in production' }).code(403);
-        }
-        
-        // Optional: Require a special header for extra safety
-        const dangerousHeader = request.headers['x-allow-hard-delete'];
-        if (dangerousHeader !== 'yes-i-know-this-is-permanent') {
-          return h.response({ 
-            error: 'Missing required header: x-allow-hard-delete' 
-          }).code(400);
-        }
-        
-        await UserService.hardDelete(userId);
-        
-        return h.response({ 
-          success: true, 
-          message: 'User permanently deleted' 
+        return h.response({
+          code: code.code,
+          expiresAt: code.expiresAt,
+          isNew: Date.now() - new Date(code.createdAt).getTime() < 5000, // Created in last 5 seconds
         }).code(200);
       } catch (error: any) {
         return h.response({ error: error.message }).code(500);
       }
     },
-    options: { 
-      auth: false,  // Or require admin auth
-      tags: ['api', 'users', 'dangerous'],
-      description: '⚠️ DEV ONLY: Permanently delete user'
-    },
-  }
+    options: { auth: 'jwt' },
+  },
 
+  /**
+   * Check if user's company has an active invite code.
+   * Frontend uses this on settings page load to show button state.
+   */
+  {
+    method: 'GET',
+    path: '/company-code/check',
+    handler: async (request: Request, h: ResponseToolkit) => {
+      try {
+        const authUser = request.auth.credentials as any;
+        
+        if (!authUser?.companyId) {
+          return h.response({ hasActiveCode: false }).code(200);
+        }
+
+        const code = await CompanyService.getActiveCompanyCode(authUser.companyId);
+        
+        return h.response({
+          hasActiveCode: !!code,
+          code: code?.code,
+          expiresAt: code?.expiresAt,
+        }).code(200);
+      } catch (error: any) {
+        return h.response({ error: error.message }).code(500);
+      }
+    },
+    options: { auth: 'jwt' },
+  },
+
+  /**
+   * Validate a company code during signup.
+   * Public endpoint - used when new user enters invite code.
+   */
+  {
+    method: 'POST',
+    path: '/company-code/validate',
+    handler: async (request: Request, h: ResponseToolkit) => {
+      try {
+        const payload = request.payload as { code: string };
+
+        if (!payload.code) {
+          return h.response({ error: 'Code is required' }).code(400);
+        }
+
+        const companyId = await CompanyService.validateAndGetCompanyId(payload.code);
+
+        if (!companyId) {
+          return h.response({ 
+            valid: false, 
+            error: 'Invalid or expired code' 
+          }).code(200);
+        }
+
+        // Optionally fetch company details to show user what they're joining
+        const company = await CompanyService.findCompanyById(companyId);
+
+        return h.response({
+          valid: true,
+          companyId,
+          companyName: company?.name,
+        }).code(200);
+      } catch (error: any) {
+        return h.response({ error: error.message }).code(500);
+      }
+    },
+    options: { auth: 'jwt' }, // Public endpoint
+  },
+
+  /**
+   * Send invite code via email (optional helper endpoint).
+   * Frontend can call this or handle email client-side.
+   */
+  {
+    method: 'POST',
+    path: '/company-code/send-invite',
+    handler: async (request: Request, h: ResponseToolkit) => {
+      try {
+        const authUser = request.auth.credentials as any;
+        const payload = request.payload as { email: string };
+
+        if (!authUser?.companyId) {
+          return h.response({ error: 'User not associated with a company' }).code(400);
+        }
+
+        if (!payload.email) {
+          return h.response({ error: 'Email is required' }).code(400);
+        }
+
+        // Get or create code
+        const codeData = await CompanyService.getOrCreateCompanyCode(authUser.companyId);
+        const company = await CompanyService.findCompanyById(authUser.companyId);
+
+        // TODO: Integrate with your email service (SendGrid, AWS SES, etc.)
+        // await sendInviteEmail({
+        //   to: payload.email,
+        //   code: codeData.code,
+        //   companyName: company?.name,
+        //   inviterName: authUser.name,
+        //   expiresAt: codeData.expiresAt,
+        // });
+
+        return h.response({
+          success: true,
+          message: 'Invite sent',
+          code: codeData.code, // Return code so frontend can show it to user
+        }).code(200);
+      } catch (error: any) {
+        return h.response({ error: error.message }).code(500);
+      }
+    },
+    options: { auth: 'jwt' },
+  },
+
+  // Hard delete (dev only)
+  {
+    method: 'DELETE',
+    path: '/hard-delete/{companyId}',
+    handler: async (request: Request, h: ResponseToolkit) => {
+      try {
+        const { companyId } = request.params;
+
+        if (process.env.NODE_ENV === 'production') {
+          return h.response({ error: 'Hard delete not allowed in production' }).code(403);
+        }
+
+        const dangerousHeader = request.headers['x-allow-hard-delete'];
+        if (dangerousHeader !== 'yes-i-know-this-is-permanent') {
+          return h.response({
+            error: 'Missing required header: x-allow-hard-delete',
+          }).code(400);
+        }
+
+        await CompanyService.hardDelete(companyId);
+
+        return h.response({
+          success: true,
+          message: 'Company permanently deleted',
+        }).code(200);
+      } catch (error: any) {
+        return h.response({ error: error.message }).code(500);
+      }
+    },
+    options: {
+      auth: false,
+      tags: ['api', 'companies', 'dangerous'],
+      description: '⚠️ DEV ONLY: Permanently delete company',
+    },
+  },
 ];

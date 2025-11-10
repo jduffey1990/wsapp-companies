@@ -6,8 +6,7 @@ import type { IncomingMessage, RequestListener, ServerResponse } from 'http'
 
 import { AuthService } from './controllers/authService'
 import { PostgresService } from './controllers/postgres.service'
-import { userRoutes } from './routes/companyRoutes'
-import { homeRoutes, loginRoutes } from './routes/loginRoutes'
+import { companyRoutes } from './routes/companyRoutes'
 
 dotenv.config()
 
@@ -33,9 +32,7 @@ function asServerRoutes<T extends ServerRoute[]>(routes: T): T { return routes }
 
 // If your imported route arrays are NOT typed, you can fix them here:
 const allRoutes = asServerRoutes([
-  ...userRoutes as unknown as ServerRoute[],
-  ...homeRoutes as unknown as ServerRoute[],
-  ...loginRoutes as unknown as ServerRoute[], // uncomment if you have it
+  ...companyRoutes as unknown as ServerRoute[]
 ])
 
 async function buildServer() {
