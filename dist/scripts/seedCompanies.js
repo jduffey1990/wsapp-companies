@@ -60,7 +60,7 @@ function seedCompanies() {
       ON CONFLICT (code) DO NOTHING
       RETURNING id, company_id, code, created_at, expires_at
     `;
-            const { rows: codeRows } = yield db.query(codeSql, [company.id, 'ACME2024', expiresAt]);
+            const { rows: codeRows } = yield db.query(codeSql, [company.id, '019a6f62-9443-77fd-b7fc-c0b2aa35b4b3', expiresAt]);
             if (codeRows.length === 0) {
                 console.log('⚠️  Company code already exists, skipping');
                 return;

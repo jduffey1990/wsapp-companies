@@ -196,7 +196,6 @@ resource "aws_codebuild_project" "main" {
     environment_variable {
       name  = "DATABASE_URL"
       value = var.database_url
-      type  = "PARAMETER_STORE"   #better security than "PLAINTEXT"
     }
   }
   
