@@ -1,6 +1,10 @@
 // src/routes/companies.ts
 import { Request, ResponseToolkit, ServerRoute } from '@hapi/hapi';
 import { CompanyService } from '../controllers/companyService';
+import { EmailService } from '../controllers/email.service';
+
+const emailService = new EmailService();
+
 
 export const companyRoutes: ServerRoute[] = [
   // Get all companies
@@ -114,47 +118,18 @@ export const companyRoutes: ServerRoute[] = [
     path: '/company-code',
     handler: async (request: Request, h: ResponseToolkit) => {
       try {
-        const authUser = request.auth.credentials as any;
+        const company_id = request.query.companyId; // ← Changed from request.params
         
-        if (!authUser?.companyId) {
+        if (!company_id) {
           return h.response({ error: 'User not associated with a company' }).code(400);
         }
 
-        const code = await CompanyService.getOrCreateCompanyCode(authUser.companyId);
+        const code = await CompanyService.getOrCreateCompanyCode(company_id);
         
         return h.response({
+          id: code.id,
           code: code.code,
           expiresAt: code.expiresAt,
-          isNew: Date.now() - new Date(code.createdAt).getTime() < 5000, // Created in last 5 seconds
-        }).code(200);
-      } catch (error: any) {
-        return h.response({ error: error.message }).code(500);
-      }
-    },
-    options: { auth: 'jwt' },
-  },
-
-  /**
-   * Check if user's company has an active invite code.
-   * Frontend uses this on settings page load to show button state.
-   */
-  {
-    method: 'GET',
-    path: '/company-code/check',
-    handler: async (request: Request, h: ResponseToolkit) => {
-      try {
-        const authUser = request.auth.credentials as any;
-        
-        if (!authUser?.companyId) {
-          return h.response({ hasActiveCode: false }).code(200);
-        }
-
-        const code = await CompanyService.getActiveCompanyCode(authUser.companyId);
-        
-        return h.response({
-          hasActiveCode: !!code,
-          code: code?.code,
-          expiresAt: code?.expiresAt,
         }).code(200);
       } catch (error: any) {
         return h.response({ error: error.message }).code(500);
@@ -208,78 +183,72 @@ export const companyRoutes: ServerRoute[] = [
    */
   {
     method: 'POST',
-    path: '/company-code/send-invite',
+    path: '/send-invitation',
     handler: async (request: Request, h: ResponseToolkit) => {
       try {
-        const authUser = request.auth.credentials as any;
-        const payload = request.payload as { email: string };
+        const payload = request.payload as {
+          email: string;
+          subject: string;
+          body: string;
+          code: string;
+          image?: string;
+        };
 
-        if (!authUser?.companyId) {
-          return h.response({ error: 'User not associated with a company' }).code(400);
+        // Validation
+        if (!payload.email || !payload.code || !payload.subject || !payload.body) {
+          return h.response({ error: 'Missing required fields' }).code(400);
         }
 
-        if (!payload.email) {
-          return h.response({ error: 'Email is required' }).code(400);
+        // Basic email validation
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(payload.email)) {
+          return h.response({ error: 'Invalid email address' }).code(400);
         }
 
-        // Get or create code
-        const codeData = await CompanyService.getOrCreateCompanyCode(authUser.companyId);
-        const company = await CompanyService.findCompanyById(authUser.companyId);
-
-        // TODO: Integrate with your email service (SendGrid, AWS SES, etc.)
-        // await sendInviteEmail({
-        //   to: payload.email,
-        //   code: codeData.code,
-        //   companyName: company?.name,
-        //   inviterName: authUser.name,
-        //   expiresAt: codeData.expiresAt,
-        // });
+        // Send the email
+        await emailService.sendInviteEmail({
+          to: payload.email,
+          subject: payload.subject,
+          body: payload.body,
+          code: payload.code,
+          image: payload.image
+        });
 
         return h.response({
           success: true,
-          message: 'Invite sent',
-          code: codeData.code, // Return code so frontend can show it to user
+          message: 'Invitation sent successfully',
+          code: payload.code,
         }).code(200);
       } catch (error: any) {
-        return h.response({ error: error.message }).code(500);
+        console.error('Send invitation error:', error);
+        return h.response({ 
+          error: error.message || 'Failed to send invitation' 
+        }).code(500);
       }
     },
     options: { auth: 'jwt' },
   },
 
-  // Hard delete (dev only)
+  // Hard delete
   {
     method: 'DELETE',
-    path: '/hard-delete/{companyId}',
+    path: '/delete-code/{companyId}',
     handler: async (request: Request, h: ResponseToolkit) => {
       try {
         const { companyId } = request.params;
 
-        if (process.env.NODE_ENV === 'production') {
-          return h.response({ error: 'Hard delete not allowed in production' }).code(403);
-        }
-
-        const dangerousHeader = request.headers['x-allow-hard-delete'];
-        if (dangerousHeader !== 'yes-i-know-this-is-permanent') {
-          return h.response({
-            error: 'Missing required header: x-allow-hard-delete',
-          }).code(400);
-        }
-
-        await CompanyService.hardDelete(companyId);
+        await CompanyService.deleteCompanyCode(companyId);
 
         return h.response({
           success: true,
-          message: 'Company permanently deleted',
+          message: 'Company code successfully deleted',
         }).code(200);
       } catch (error: any) {
         return h.response({ error: error.message }).code(500);
       }
     },
     options: {
-      auth: false,
-      tags: ['api', 'companies', 'dangerous'],
-      description: '⚠️ DEV ONLY: Permanently delete company',
+      auth: 'jwt'
     },
   },
 ];
