@@ -39,12 +39,12 @@ function seedCompanies() {
         try {
             // Insert one company
             const companySql = `
-      INSERT INTO companies (name, status)
-      VALUES ($1, $2)
+      INSERT INTO companies (id, name, status)
+      VALUES ($1, $2, $3)
       ON CONFLICT DO NOTHING
       RETURNING id, name, status, deleted_at, created_at, updated_at
     `;
-            const { rows: companyRows } = yield db.query(companySql, ['Acme Corporation', 'active']);
+            const { rows: companyRows } = yield db.query(companySql, ['019a7452-2536-7366-83bf-c48d67240781', 'Acme Corporation', 'active']);
             if (companyRows.length === 0) {
                 console.log('⚠️  Company already exists, skipping');
                 return;

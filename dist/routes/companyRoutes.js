@@ -11,6 +11,8 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.companyRoutes = void 0;
 const companyService_1 = require("../controllers/companyService");
+const email_service_1 = require("../controllers/email.service");
+const emailService = new email_service_1.EmailService();
 exports.companyRoutes = [
     // Get all companies
     {
@@ -109,41 +111,15 @@ exports.companyRoutes = [
         path: '/company-code',
         handler: (request, h) => __awaiter(void 0, void 0, void 0, function* () {
             try {
-                const authUser = request.auth.credentials;
-                if (!(authUser === null || authUser === void 0 ? void 0 : authUser.companyId)) {
+                const company_id = request.query.companyId; // ← Changed from request.params
+                if (!company_id) {
                     return h.response({ error: 'User not associated with a company' }).code(400);
                 }
-                const code = yield companyService_1.CompanyService.getOrCreateCompanyCode(authUser.companyId);
+                const code = yield companyService_1.CompanyService.getOrCreateCompanyCode(company_id);
                 return h.response({
+                    id: code.id,
                     code: code.code,
                     expiresAt: code.expiresAt,
-                    isNew: Date.now() - new Date(code.createdAt).getTime() < 5000, // Created in last 5 seconds
-                }).code(200);
-            }
-            catch (error) {
-                return h.response({ error: error.message }).code(500);
-            }
-        }),
-        options: { auth: 'jwt' },
-    },
-    /**
-     * Check if user's company has an active invite code.
-     * Frontend uses this on settings page load to show button state.
-     */
-    {
-        method: 'GET',
-        path: '/company-code/check',
-        handler: (request, h) => __awaiter(void 0, void 0, void 0, function* () {
-            try {
-                const authUser = request.auth.credentials;
-                if (!(authUser === null || authUser === void 0 ? void 0 : authUser.companyId)) {
-                    return h.response({ hasActiveCode: false }).code(200);
-                }
-                const code = yield companyService_1.CompanyService.getActiveCompanyCode(authUser.companyId);
-                return h.response({
-                    hasActiveCode: !!code,
-                    code: code === null || code === void 0 ? void 0 : code.code,
-                    expiresAt: code === null || code === void 0 ? void 0 : code.expiresAt,
                 }).code(200);
             }
             catch (error) {
@@ -192,60 +168,53 @@ exports.companyRoutes = [
      */
     {
         method: 'POST',
-        path: '/company-code/send-invite',
+        path: '/send-invitation',
         handler: (request, h) => __awaiter(void 0, void 0, void 0, function* () {
             try {
-                const authUser = request.auth.credentials;
                 const payload = request.payload;
-                if (!(authUser === null || authUser === void 0 ? void 0 : authUser.companyId)) {
-                    return h.response({ error: 'User not associated with a company' }).code(400);
+                // Validation
+                if (!payload.email || !payload.code || !payload.subject || !payload.body) {
+                    return h.response({ error: 'Missing required fields' }).code(400);
                 }
-                if (!payload.email) {
-                    return h.response({ error: 'Email is required' }).code(400);
+                // Basic email validation
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                if (!emailRegex.test(payload.email)) {
+                    return h.response({ error: 'Invalid email address' }).code(400);
                 }
-                // Get or create code
-                const codeData = yield companyService_1.CompanyService.getOrCreateCompanyCode(authUser.companyId);
-                const company = yield companyService_1.CompanyService.findCompanyById(authUser.companyId);
-                // TODO: Integrate with your email service (SendGrid, AWS SES, etc.)
-                // await sendInviteEmail({
-                //   to: payload.email,
-                //   code: codeData.code,
-                //   companyName: company?.name,
-                //   inviterName: authUser.name,
-                //   expiresAt: codeData.expiresAt,
-                // });
+                // Send the email
+                yield emailService.sendInviteEmail({
+                    to: payload.email,
+                    subject: payload.subject,
+                    body: payload.body,
+                    code: payload.code,
+                    image: payload.image
+                });
                 return h.response({
                     success: true,
-                    message: 'Invite sent',
-                    code: codeData.code, // Return code so frontend can show it to user
+                    message: 'Invitation sent successfully',
+                    code: payload.code,
                 }).code(200);
             }
             catch (error) {
-                return h.response({ error: error.message }).code(500);
+                console.error('Send invitation error:', error);
+                return h.response({
+                    error: error.message || 'Failed to send invitation'
+                }).code(500);
             }
         }),
         options: { auth: 'jwt' },
     },
-    // Hard delete (dev only)
+    // Hard delete
     {
         method: 'DELETE',
-        path: '/hard-delete/{companyId}',
+        path: '/delete-code/{companyId}',
         handler: (request, h) => __awaiter(void 0, void 0, void 0, function* () {
             try {
                 const { companyId } = request.params;
-                if (process.env.NODE_ENV === 'production') {
-                    return h.response({ error: 'Hard delete not allowed in production' }).code(403);
-                }
-                const dangerousHeader = request.headers['x-allow-hard-delete'];
-                if (dangerousHeader !== 'yes-i-know-this-is-permanent') {
-                    return h.response({
-                        error: 'Missing required header: x-allow-hard-delete',
-                    }).code(400);
-                }
-                yield companyService_1.CompanyService.hardDelete(companyId);
+                yield companyService_1.CompanyService.deleteCompanyCode(companyId);
                 return h.response({
                     success: true,
-                    message: 'Company permanently deleted',
+                    message: 'Company code successfully deleted',
                 }).code(200);
             }
             catch (error) {
@@ -253,9 +222,7 @@ exports.companyRoutes = [
             }
         }),
         options: {
-            auth: false,
-            tags: ['api', 'companies', 'dangerous'],
-            description: '⚠️ DEV ONLY: Permanently delete company',
+            auth: 'jwt'
         },
     },
 ];

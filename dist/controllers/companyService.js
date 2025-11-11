@@ -10,6 +10,8 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CompanyService = void 0;
+// src/controllers/companyService.ts
+const crypto_1 = require("crypto");
 const postgres_service_1 = require("./postgres.service");
 class CompanyService {
     /**
@@ -218,20 +220,6 @@ class CompanyService {
                 throw new Error('Company code not found');
         });
     }
-    /**
-     * Get all codes (active and expired) for a company.
-     * Useful for admin view or debugging.
-     */
-    static getAllCompanyCodesForCompany(companyId) {
-        return __awaiter(this, void 0, void 0, function* () {
-            const db = postgres_service_1.PostgresService.getInstance();
-            const { rows } = yield db.query(`SELECT id, company_id, code, created_at, expires_at
-       FROM company_codes
-       WHERE company_id = $1::uuid
-       ORDER BY created_at DESC`, [companyId]);
-            return rows.map(mapRowToCompanyCode);
-        });
-    }
 }
 exports.CompanyService = CompanyService;
 // ============== HELPER FUNCTIONS ==============
@@ -240,14 +228,7 @@ exports.CompanyService = CompanyService;
  * Format: XXXX-XXXX for readability
  */
 function generateInviteCode() {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Removed ambiguous chars (0, O, I, 1)
-    let code = '';
-    for (let i = 0; i < 8; i++) {
-        if (i === 4)
-            code += '-'; // Add separator in middle
-        code += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return code;
+    return (0, crypto_1.randomUUID)();
 }
 function mapRowToCompany(row) {
     return {
