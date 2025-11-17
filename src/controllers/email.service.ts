@@ -64,6 +64,7 @@ export class EmailService {
    * Create HTML email template
    */
   private createInvitationHtml(params: { body: string; code: string; image?: string }): string {
+    const appUrl = process.env.APP_URL;
     const { body, code, image } = params;
     
     return `
@@ -187,7 +188,7 @@ export class EmailService {
       
       <div style="text-align: center;">
       <!--
-        <a href="https://Mozaiq.com/login" class="cta-button">
+        <a href="${appUrl}" class="cta-button">
           Join Now
         </a>
         -->
