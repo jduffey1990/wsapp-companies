@@ -206,9 +206,9 @@ export class CompanyService {
        WHERE code = $1
          AND expires_at > NOW()
        LIMIT 1`,
-      [code.toUpperCase()]
+      [code]
     );
-    
+    console.log("rows be here", rows)
     return rows[0] ? rows[0].company_id : null;
   }
 

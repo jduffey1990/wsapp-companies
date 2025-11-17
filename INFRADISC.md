@@ -1,7 +1,7 @@
-# Brandora Infrastructure Overview
+# Mozaiq Infrastructure Overview
 
 **Last Updated:** November 10, 2025  
-**Project:** Brandora Wholesale Matchmaking Platform  
+**Project:** Mozaiq Wholesale Matchmaking Platform  
 **Architecture:** Microservices with AWS Serverless
 
 ---
@@ -20,7 +20,7 @@
 
 ### Overview
 
-Brandora uses a serverless microservices architecture on AWS with three main services:
+Mozaiq uses a serverless microservices architecture on AWS with three main services:
 
 1. **Users Service** - Authentication, user management
 2. **Companies Service** - Company profiles, invitations, verification

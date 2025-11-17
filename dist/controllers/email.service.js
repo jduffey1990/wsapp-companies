@@ -69,7 +69,7 @@ class EmailService {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Brandora Invitation</title>
+  <title>Mozaiq Invitation</title>
   <style>
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
@@ -166,8 +166,8 @@ class EmailService {
 <body>
   <div class="container">
     <div class="header">
-      ${image ? `<img src="${image}" alt="Brandora">` : ''}
-      <h1>You're Invited to Brandora!</h1>
+      ${image ? `<img src="${image}" alt="Mozaiq">` : ''}
+      <h1>You're Invited to Mozaiq!</h1>
     </div>
     
     <div class="content">
@@ -184,7 +184,7 @@ class EmailService {
       
       <div style="text-align: center;">
       <!--
-        <a href="https://brandora.com/login" class="cta-button">
+        <a href="https://Mozaiq.com/login" class="cta-button">
           Join Now
         </a>
         -->
@@ -193,11 +193,11 @@ class EmailService {
     
     <div class="footer">
       <p>
-        This invitation was sent to you on behalf of a Brandora team member.<br>
+        This invitation was sent to you on behalf of a Mozaiq team member.<br>
         If you weren't expecting this email, you can safely ignore it.
       </p>
       <p style="margin-top: 20px; color: #999;">
-        © ${new Date().getFullYear()} Brandora. All rights reserved.
+        © ${new Date().getFullYear()} Mozaiq. All rights reserved.
       </p>
     </div>
   </div>

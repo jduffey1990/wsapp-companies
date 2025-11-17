@@ -148,34 +148,27 @@ export const companyRoutes: ServerRoute[] = [
     handler: async (request: Request, h: ResponseToolkit) => {
       try {
         const payload = request.payload as { code: string };
-
+        
         if (!payload.code) {
           return h.response({ error: 'Code is required' }).code(400);
         }
-
+        
         const companyId = await CompanyService.validateAndGetCompanyId(payload.code);
-
+        
         if (!companyId) {
-          return h.response({ 
-            valid: false, 
-            error: 'Invalid or expired code' 
-          }).code(200);
+          return h.response({ error: 'Invalid or expired code' }).code(404);
         }
-
-        // Optionally fetch company details to show user what they're joining
-        const company = await CompanyService.findCompanyById(companyId);
-
-        return h.response({
-          valid: true,
-          companyId,
-          companyName: company?.name,
-        }).code(200);
+        
+        // Just return the company ID - that's all we need
+        return h.response( companyId ).code(200);
+        
       } catch (error: any) {
         return h.response({ error: error.message }).code(500);
       }
     },
-    options: { auth: 'jwt' }, // Public endpoint
+    options: { auth: false } // Public endpoint - no JWT needed for validation
   },
+
 
   /**
    * Send invite code via email (optional helper endpoint).

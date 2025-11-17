@@ -143,24 +143,16 @@ exports.companyRoutes = [
                 }
                 const companyId = yield companyService_1.CompanyService.validateAndGetCompanyId(payload.code);
                 if (!companyId) {
-                    return h.response({
-                        valid: false,
-                        error: 'Invalid or expired code'
-                    }).code(200);
+                    return h.response({ error: 'Invalid or expired code' }).code(404);
                 }
-                // Optionally fetch company details to show user what they're joining
-                const company = yield companyService_1.CompanyService.findCompanyById(companyId);
-                return h.response({
-                    valid: true,
-                    companyId,
-                    companyName: company === null || company === void 0 ? void 0 : company.name,
-                }).code(200);
+                // Just return the company ID - that's all we need
+                return h.response(companyId).code(200);
             }
             catch (error) {
                 return h.response({ error: error.message }).code(500);
             }
         }),
-        options: { auth: 'jwt' }, // Public endpoint
+        options: { auth: false } // Public endpoint - no JWT needed for validation
     },
     /**
      * Send invite code via email (optional helper endpoint).
