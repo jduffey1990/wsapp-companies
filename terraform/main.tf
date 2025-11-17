@@ -48,8 +48,7 @@ resource "aws_lambda_function" "main" {
       DATABASE_URL         = var.database_url
       JWT_SECRET           = var.jwt_secret
       RECAPTCHA_SECRET_KEY = var.recaptcha_secret_key
-      FROM_EMAIL = "noreply@foxdogdevelopment.com"
-      AWS_REGION="us-east-2"
+      FROM_EMAIL = var.from_email
     }
   }
   

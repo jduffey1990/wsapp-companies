@@ -117,6 +117,8 @@ export const companyRoutes: ServerRoute[] = [
     method: 'GET',
     path: '/company-code',
     handler: async (request: Request, h: ResponseToolkit) => {
+      console.log('=== /company-code handler REACHED ===');
+      console.log('Auth credentials:', request.auth.credentials);
       try {
         const company_id = request.query.companyId; // ← Changed from request.params
         

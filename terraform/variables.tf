@@ -101,3 +101,9 @@ variable "recaptcha_secret_key" {
   type        = string
   sensitive   = true
 }
+
+variable "from_email" {
+  description = "no reply from email"
+  type        = string
+  default     = "noreply@foxdogdevelopment.com"
+}
