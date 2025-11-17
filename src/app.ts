@@ -40,7 +40,13 @@ async function buildServer() {
     port: PORT,
     host: HOST,
     routes: IS_LAMBDA
-      ? { cors: false } // CORS handled by API Gateway in prod
+      ? { 
+          cors: {
+            origin: ['*'],  // API Gateway already validates origin
+            credentials: true,
+            additionalHeaders: ['authorization', 'content-type'],
+          }
+        }
       : {
           cors: {
             origin: ['http://localhost:*', 'http://127.0.0.1:*'],

@@ -97,6 +97,11 @@ resource "aws_apigatewayv2_stage" "default" {
       responseLength = "$context.responseLength"
     })
   }
+
+  default_route_settings {
+    throttling_burst_limit = 5000  # Max concurrent requests
+    throttling_rate_limit  = 2000  # Requests per second
+  }
   
   tags = local.common_tags
 }
