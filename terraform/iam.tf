@@ -111,12 +111,15 @@ resource "aws_iam_role_policy" "codebuild" {
       {
         Effect = "Allow"
         Action = [
-          "lambda:UpdateFunctionCode",
-          "lambda:GetFunction",
-          "lambda:UpdateFunctionConfiguration",
-          "lambda:PublishVersion",   
-          "lambda:ListVersionsByFunction" 
-        ]
+        "lambda:UpdateFunctionCode",
+        "lambda:GetFunction",
+        "lambda:UpdateFunctionConfiguration",
+        "lambda:PublishVersion",   
+        "lambda:ListVersionsByFunction",
+        "lambda:UpdateAlias",
+        "lambda:CreateAlias",
+        "lambda:GetAlias"
+      ]
         Resource = aws_lambda_function.main.arn
       }
     ]
