@@ -93,28 +93,37 @@ async function startLocal() {
 
 // ---------- Lambda entry ----------
 export const handler = async (event: any, context: any) => {
+  console.log('=== LAMBDA INVOKED ===');
+  console.log('Event:', JSON.stringify(event, null, 2));
+  console.log('Context:', JSON.stringify(context, null, 2));
   
   try {
     if (!cachedLambdaHandler) {
+      console.log('Building Hapi server...');
       const server = await buildServer()
+      console.log('Hapi server built, routes:', server.table().map(r => `${r.method} ${r.path}`));
+      
       const listener = toRequestListener(server)
       cachedLambdaHandler = serverlessExpress({ 
         app: listener,
         eventSourceName: 'AWS_API_GATEWAY_V2'
       })
+      console.log('serverless-express handler created');
     }
     
-    return await cachedLambdaHandler(event, context)
+    console.log('Calling cached handler...');
+    const result = await cachedLambdaHandler(event, context);
+    console.log('Handler result:', JSON.stringify(result, null, 2));
+    return result;
   } catch (error) {
     console.error('Lambda Error:', error);
     if (error instanceof Error) {
       console.error('Stack:', error.stack);
-    } else {
-      console.error('Non-Error thrown:', error);
     }
     throw error;
   }
 }
+
 
 
 
