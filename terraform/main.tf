@@ -67,10 +67,18 @@ resource "aws_apigatewayv2_api" "main" {
   protocol_type = "HTTP"
   
   cors_configuration {
-    allow_origins = ["https://jduffey1990.github.io"]
-    allow_methods = ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"]
-    allow_headers = ["*"]
-    max_age       = 300
+    allow_origins     = ["https://jduffey1990.github.io"]
+    allow_methods     = ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"]
+    allow_headers     = [
+      "authorization",
+      "content-type",
+      "x-csrftoken",
+      "accept",
+      "accept-encoding",
+      "accept-language"
+    ]
+    allow_credentials = true
+    max_age           = 300
   }
   
   tags = merge(local.common_tags, {

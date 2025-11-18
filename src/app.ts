@@ -10,14 +10,6 @@ import { companyRoutes } from './routes/companyRoutes'
 
 dotenv.config()
 
-console.log('[DB cfg]', {
-  host: process.env.PGHOST,
-  db: process.env.PGDATABASE,
-  user: process.env.PGUSER,
-  port: process.env.PGPORT,
-  url: process.env.DATABASE_URL,
-});
-
 const NODE_ENV = process.env.NODE_ENV || 'development'
 const IS_LAMBDA = NODE_ENV === 'production' || !!process.env.LAMBDA_TASK_ROOT
 const PORT = Number(process.env.PORT || 3000)
@@ -99,27 +91,17 @@ async function startLocal() {
 
 // ---------- Lambda entry ----------
 export const handler = async (event: any, context: any) => {
-  console.log('=== LAMBDA INVOKED ===');
-  console.log('Event:', JSON.stringify(event, null, 2));
-  console.log('Context:', JSON.stringify(context, null, 2));
-  
   try {
     if (!cachedLambdaHandler) {
-      console.log('Building Hapi server...');
       const server = await buildServer()
-      console.log('Hapi server built, routes:', server.table().map(r => `${r.method} ${r.path}`));
       
       const listener = toRequestListener(server)
       cachedLambdaHandler = serverlessExpress({ 
         app: listener,
         eventSourceName: 'AWS_API_GATEWAY_V2'
       })
-      console.log('serverless-express handler created');
     }
-    
-    console.log('Calling cached handler...');
     const result = await cachedLambdaHandler(event, context);
-    console.log('Handler result:', JSON.stringify(result, null, 2));
     return result;
   } catch (error) {
     console.error('Lambda Error:', error);

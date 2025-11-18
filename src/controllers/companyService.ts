@@ -208,7 +208,6 @@ export class CompanyService {
        LIMIT 1`,
       [code]
     );
-    console.log("rows be here", rows)
     return rows[0] ? rows[0].company_id : null;
   }
 
