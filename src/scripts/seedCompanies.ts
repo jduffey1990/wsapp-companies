@@ -8,6 +8,7 @@ function rowToCompany(row: any): Company {
     id: row.id,
     name: row.name,
     status: row.status,
+    profile: row.status,
     deletedAt: row.deleted_at ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
