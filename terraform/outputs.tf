@@ -21,16 +21,6 @@ output "api_gateway_id" {
   value       = aws_apigatewayv2_api.main.id
 }
 
-output "elasticache_endpoint" {
-  description = "ElastiCache Redis endpoint"
-  value       = try(aws_elasticache_serverless_cache.main.endpoint[0].address, "Not yet available")
-}
-
-output "elasticache_port" {
-  description = "ElastiCache Redis port"
-  value       = try(aws_elasticache_serverless_cache.main.endpoint[0].port, "Not yet available")
-}
-
 output "codebuild_project_name" {
   description = "Name of the CodeBuild project"
   value       = aws_codebuild_project.main.name

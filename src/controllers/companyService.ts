@@ -39,17 +39,19 @@ export class CompanyService {
    */
   public static async createCompany(input: {
     name: string;
-    status?: string; // optional override, defaults to 'active'
+    status?: string;
+    profile?: string;  
   }): Promise<Company> {
     const db = PostgresService.getInstance();
     const status = input.status ?? 'active';
+    const profile = input.profile ?? {};
 
     try {
       const { rows } = await db.query(
-        `INSERT INTO companies (name, status)
-         VALUES ($1, $2)
-         RETURNING id, name, status, deleted_at, created_at, updated_at`,
-        [input.name, status]
+        `INSERT INTO companies (name, status, profile)
+        VALUES ($1, $2, $3)
+        RETURNING id, name, status, profile, deleted_at, created_at, updated_at`,
+        [input.name, status, profile]
       );
       return mapRowToCompany(rows[0]);
     } catch (err: any) {
@@ -271,6 +273,7 @@ function mapRowToCompany(row: any): Company {
     id: row.id,
     name: row.name,
     status: row.status,
+    profile: row.profile,
     deletedAt: row.deleted_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,

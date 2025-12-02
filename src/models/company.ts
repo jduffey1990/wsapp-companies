@@ -6,6 +6,7 @@ export interface Company {
   deletedAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;
+  profile: JSON
 }
 
 export interface CompanyCode {

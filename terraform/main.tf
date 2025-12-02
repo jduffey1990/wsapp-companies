@@ -17,7 +17,6 @@ locals {
   lambda_name      = "wsapp-${var.service_name}"
   codebuild_name   = "wsapp-${var.service_name}"
   pipeline_name    = "wsapp-${var.service_name}-pipe"
-  cache_name       = "${var.service_name}-cache-${var.project}"
   api_name         = "${var.service_name}-api"
 }
 
@@ -42,7 +41,6 @@ resource "aws_lambda_function" "main" {
     variables = {
       SERVICE_NAME = var.service_name
       ENVIRONMENT  = var.environment
-      CACHE_NAME   = local.cache_name
       PROJECT      = var.project
       NODE_ENV             = "production"
       DATABASE_URL         = var.database_url
@@ -50,6 +48,7 @@ resource "aws_lambda_function" "main" {
       RECAPTCHA_SECRET_KEY = var.recaptcha_secret_key
       FROM_EMAIL = var.from_email
       APP_URL = var.app_url
+      USERS_SERVICE_URL = var.users_service_url
     }
   }
   
@@ -146,32 +145,6 @@ resource "aws_lambda_permission" "api_gateway" {
   function_name = aws_lambda_function.main.function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_apigatewayv2_api.main.execution_arn}/*/*"
-}
-
-# ============================================
-# ELASTICACHE (Redis Serverless)
-# ============================================
-
-resource "aws_elasticache_serverless_cache" "main" {
-  name   = local.cache_name
-  engine = "redis"
-  
-  cache_usage_limits {
-    data_storage {
-      maximum = 10
-      unit    = "GB"
-    }
-    ecpu_per_second {
-      maximum = 5000
-    }
-  }
-  
-  # Note: In production, you'd want to specify security groups and subnets
-  # For now, using default VPC
-  
-  tags = merge(local.common_tags, {
-    Type = "elasticache"
-  })
 }
 
 # ============================================

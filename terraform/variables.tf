@@ -113,3 +113,9 @@ variable "app_url" {
   type        = string
   sensitive   = true
 }
+
+variable "users_service_url" {
+  description = "base users api url"
+  type        = string
+  sensitive   = true
+}
