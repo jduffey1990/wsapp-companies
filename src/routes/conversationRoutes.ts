@@ -1,98 +1,220 @@
-// src/models/recommendation.ts
+// src/routes/conversationRoutes.ts
+import { Request, ResponseToolkit, ServerRoute } from '@hapi/hapi';
+import { ConversationService } from '../controllers/conversationService';
 
-export interface Recommendation {
-  id: string;                           // uuid
-  companyId: string;                    // uuid - foreign key to companies
-  conversationId?: string | null;       // uuid - optional link to conversation
-  
-  // Retailer information
-  retailerName: string;
-  retailerData?: RetailerData | null;
-  
-  // AI reasoning and scoring
-  reasoning?: string | null;            // AI explanation
-  confidenceScore?: number | null;      // 0.00 to 1.00
-  matchAttributes?: MatchAttributes | null;
-  
-  // Status tracking
-  status: string;                       // 'new' | 'contacted' | 'interested' | 'rejected' | 'completed'
-  
-  // User interaction tracking
-  userRating?: number | null;           // 1-5
-  userNotes?: string | null;
-  viewedAt?: Date | null;
-  contactedAt?: Date | null;
-  
-  // Associated products
-  productIds?: string[] | null;         // Array of product UUIDs
-  
-  // Timestamps
-  createdAt: Date;
-  updatedAt: Date;
-  deletedAt?: Date | null;
-}
+export const conversationRoutes: ServerRoute[] = [
+  // Get all conversations for a company
+  {
+    method: 'GET',
+    path: '/conversations',
+    handler: async (request: Request, h: ResponseToolkit) => {
+      try {
+        const companyId = request.query.companyId as string | undefined;
+        const activeOnly = request.query.activeOnly === 'true';
 
-export interface RetailerData {
-  website?: string;
-  location?: {
-    city?: string;
-    state?: string;
-    country?: string;
-    address?: string;
-  };
-  contact?: {
-    email?: string;
-    phone?: string;
-    buyerName?: string;
-  };
-  category?: string;
-  estimatedSize?: string;
-  storeCount?: number;
-  [key: string]: any;                   // Allow additional properties
-}
+        if (!companyId) {
+          return h.response({ error: 'Company ID is required' }).code(400);
+        }
 
-export interface MatchAttributes {
-  categoryAlignment?: number;           // 0.00 to 1.00
-  priceTierMatch?: number;
-  geographicFit?: number;
-  brandValuesAlignment?: number;
-  aestheticMatch?: number;
-  [key: string]: any;                   // Allow additional attributes
-}
+        const conversations = activeOnly
+          ? await ConversationService.findActiveByCompany(companyId)
+          : await ConversationService.findAllByCompany(companyId);
 
-export interface CreateRecommendationInput {
-  companyId: string;
-  conversationId?: string;
-  retailerName: string;
-  retailerData?: RetailerData;
-  reasoning?: string;
-  confidenceScore?: number;
-  matchAttributes?: MatchAttributes;
-  status?: string;
-  productIds?: string[];
-}
+        return h.response(conversations).code(200);
+      } catch (error: any) {
+        return h.response({ error: error.message }).code(500);
+      }
+    },
+    options: { auth: 'jwt' },
+  },
 
-export interface UpdateRecommendationInput {
-  retailerName?: string;
-  retailerData?: RetailerData;
-  reasoning?: string;
-  confidenceScore?: number;
-  matchAttributes?: MatchAttributes;
-  status?: string;
-  userRating?: number;
-  userNotes?: string;
-  viewedAt?: Date;
-  contactedAt?: Date;
-  productIds?: string[];
-}
+  // Get recent conversations with message count
+  {
+    method: 'GET',
+    path: '/conversations/recent',
+    handler: async (request: Request, h: ResponseToolkit) => {
+      try {
+        const companyId = request.query.companyId as string | undefined;
+        const limit = request.query.limit
+          ? parseInt(request.query.limit as string)
+          : 10;
 
-export interface HighConfidenceRecommendation {
-  id: string;
-  companyId: string;
-  retailerName: string;
-  confidenceScore: number;
-  status: string;
-  reasoning?: string;
-  createdAt: Date;
-  companyName: string;
-}
+        if (!companyId) {
+          return h.response({ error: 'Company ID is required' }).code(400);
+        }
+
+        const conversations = await ConversationService.getRecentWithCount(
+          companyId,
+          limit
+        );
+
+        return h.response(conversations).code(200);
+      } catch (error: any) {
+        return h.response({ error: error.message }).code(500);
+      }
+    },
+    options: { auth: 'jwt' },
+  },
+
+  // Get a single conversation by ID
+  {
+    method: 'GET',
+    path: '/conversations/{id}',
+    handler: async (request: Request, h: ResponseToolkit) => {
+      try {
+        const { id } = request.params;
+
+        const conversation = await ConversationService.findById(id);
+
+        if (!conversation) {
+          return h.response({ error: 'Conversation not found' }).code(404);
+        }
+
+        return h.response(conversation).code(200);
+      } catch (error: any) {
+        return h.response({ error: error.message }).code(500);
+      }
+    },
+    options: { auth: 'jwt' },
+  },
+
+  // Create a new conversation
+  {
+    method: 'POST',
+    path: '/conversations',
+    handler: async (request: Request, h: ResponseToolkit) => {
+      try {
+        const payload = request.payload as any;
+
+        if (!payload.companyId) {
+          return h.response({ error: 'Company ID is required' }).code(400);
+        }
+
+        const newConversation = await ConversationService.createConversation(payload);
+
+        return h.response(newConversation).code(201);
+      } catch (error: any) {
+        return h.response({ error: error.message }).code(500);
+      }
+    },
+    options: { auth: 'jwt' },
+  },
+
+  // Update a conversation
+  {
+    method: 'PATCH',
+    path: '/conversations/{id}',
+    handler: async (request: Request, h: ResponseToolkit) => {
+      try {
+        const { id } = request.params;
+        const updates = request.payload as any;
+
+        const updatedConversation = await ConversationService.updateConversation(
+          id,
+          updates
+        );
+
+        return h.response(updatedConversation).code(200);
+      } catch (error: any) {
+        if (error.message === 'Conversation not found') {
+          return h.response({ error: error.message }).code(404);
+        }
+        return h.response({ error: error.message }).code(500);
+      }
+    },
+    options: { auth: 'jwt' },
+  },
+
+  // Add a message to a conversation
+  {
+    method: 'POST',
+    path: '/conversations/{id}/messages',
+    handler: async (request: Request, h: ResponseToolkit) => {
+      try {
+        const { id } = request.params;
+        const payload = request.payload as any;
+
+        if (!payload.role || !payload.content) {
+          return h.response({ error: 'Role and content are required' }).code(400);
+        }
+
+        if (payload.role !== 'user' && payload.role !== 'assistant') {
+          return h.response({ error: 'Role must be "user" or "assistant"' }).code(400);
+        }
+
+        const updatedConversation = await ConversationService.addMessage(id, {
+          role: payload.role,
+          content: payload.content,
+        });
+
+        return h.response(updatedConversation).code(200);
+      } catch (error: any) {
+        if (error.message === 'Conversation not found') {
+          return h.response({ error: error.message }).code(404);
+        }
+        return h.response({ error: error.message }).code(500);
+      }
+    },
+    options: { auth: 'jwt' },
+  },
+
+  // Archive a conversation
+  {
+    method: 'POST',
+    path: '/conversations/{id}/archive',
+    handler: async (request: Request, h: ResponseToolkit) => {
+      try {
+        const { id } = request.params;
+
+        const archivedConversation = await ConversationService.archiveConversation(id);
+
+        return h.response(archivedConversation).code(200);
+      } catch (error: any) {
+        if (error.message === 'Conversation not found') {
+          return h.response({ error: error.message }).code(404);
+        }
+        return h.response({ error: error.message }).code(500);
+      }
+    },
+    options: { auth: 'jwt' },
+  },
+
+  // Delete a conversation (soft delete)
+  {
+    method: 'DELETE',
+    path: '/conversations/{id}',
+    handler: async (request: Request, h: ResponseToolkit) => {
+      try {
+        const { id } = request.params;
+
+        await ConversationService.softDelete(id);
+
+        return h.response({ message: 'Conversation deleted successfully' }).code(200);
+      } catch (error: any) {
+        if (error.message === 'Conversation not found') {
+          return h.response({ error: error.message }).code(404);
+        }
+        return h.response({ error: error.message }).code(500);
+      }
+    },
+    options: { auth: 'jwt' },
+  },
+
+  // Get message count for a conversation
+  {
+    method: 'GET',
+    path: '/conversations/{id}/message-count',
+    handler: async (request: Request, h: ResponseToolkit) => {
+      try {
+        const { id } = request.params;
+
+        const count = await ConversationService.getMessageCount(id);
+
+        return h.response({ conversationId: id, messageCount: count }).code(200);
+      } catch (error: any) {
+        return h.response({ error: error.message }).code(500);
+      }
+    },
+    options: { auth: 'jwt' },
+  },
+];

@@ -7,6 +7,9 @@ import type { IncomingMessage, RequestListener, ServerResponse } from 'http'
 import { AuthService } from './controllers/authService'
 import { PostgresService } from './controllers/postgres.service'
 import { companyRoutes } from './routes/companyRoutes'
+import { productRoutes } from './routes/productRoutes'
+import { conversationRoutes } from './routes/conversationRoutes'
+import { recommendationRoutes } from './routes/recommendationRoutes'
 
 dotenv.config()
 
@@ -24,8 +27,12 @@ function asServerRoutes<T extends ServerRoute[]>(routes: T): T { return routes }
 
 // If your imported route arrays are NOT typed, you can fix them here:
 const allRoutes = asServerRoutes([
-  ...companyRoutes as unknown as ServerRoute[]
+  ...companyRoutes as unknown as ServerRoute[],
+  ...productRoutes as unknown as ServerRoute[],
+  ...conversationRoutes as unknown as ServerRoute[],
+  ...recommendationRoutes as unknown as ServerRoute[]
 ])
+
 
 async function buildServer() {
   const server = Hapi.server({
