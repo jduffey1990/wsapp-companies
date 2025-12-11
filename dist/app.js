@@ -21,13 +21,6 @@ const authService_1 = require("./controllers/authService");
 const postgres_service_1 = require("./controllers/postgres.service");
 const companyRoutes_1 = require("./routes/companyRoutes");
 dotenv_1.default.config();
-console.log('[DB cfg]', {
-    host: process.env.PGHOST,
-    db: process.env.PGDATABASE,
-    user: process.env.PGUSER,
-    port: process.env.PGPORT,
-    url: process.env.DATABASE_URL,
-});
 const NODE_ENV = process.env.NODE_ENV || 'development';
 const IS_LAMBDA = NODE_ENV === 'production' || !!process.env.LAMBDA_TASK_ROOT;
 const PORT = Number(process.env.PORT || 3000);
@@ -47,7 +40,13 @@ function buildServer() {
             port: PORT,
             host: HOST,
             routes: IS_LAMBDA
-                ? { cors: false } // CORS handled by API Gateway in prod
+                ? {
+                    cors: {
+                        origin: ['*'], // API Gateway already validates origin
+                        credentials: true,
+                        additionalHeaders: ['authorization', 'content-type'],
+                    }
+                }
                 : {
                     cors: {
                         origin: ['http://localhost:*', 'http://127.0.0.1:*'],
@@ -104,15 +103,13 @@ const handler = (event, context) => __awaiter(void 0, void 0, void 0, function* 
                 eventSourceName: 'AWS_API_GATEWAY_V2'
             });
         }
-        return yield cachedLambdaHandler(event, context);
+        const result = yield cachedLambdaHandler(event, context);
+        return result;
     }
     catch (error) {
         console.error('Lambda Error:', error);
         if (error instanceof Error) {
             console.error('Stack:', error.stack);
-        }
-        else {
-            console.error('Non-Error thrown:', error);
         }
         throw error;
     }

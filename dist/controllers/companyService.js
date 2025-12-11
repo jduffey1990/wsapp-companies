@@ -45,13 +45,14 @@ class CompanyService {
      */
     static createCompany(input) {
         return __awaiter(this, void 0, void 0, function* () {
-            var _a;
+            var _a, _b;
             const db = postgres_service_1.PostgresService.getInstance();
             const status = (_a = input.status) !== null && _a !== void 0 ? _a : 'active';
+            const profile = (_b = input.profile) !== null && _b !== void 0 ? _b : {};
             try {
-                const { rows } = yield db.query(`INSERT INTO companies (name, status)
-         VALUES ($1, $2)
-         RETURNING id, name, status, deleted_at, created_at, updated_at`, [input.name, status]);
+                const { rows } = yield db.query(`INSERT INTO companies (name, status, profile)
+        VALUES ($1, $2, $3)
+        RETURNING id, name, status, profile, deleted_at, created_at, updated_at`, [input.name, status, profile]);
                 return mapRowToCompany(rows[0]);
             }
             catch (err) {
@@ -178,7 +179,6 @@ class CompanyService {
        WHERE code = $1
          AND expires_at > NOW()
        LIMIT 1`, [code]);
-            console.log("rows be here", rows);
             return rows[0] ? rows[0].company_id : null;
         });
     }
@@ -236,6 +236,7 @@ function mapRowToCompany(row) {
         id: row.id,
         name: row.name,
         status: row.status,
+        profile: row.profile,
         deletedAt: row.deleted_at,
         createdAt: row.created_at,
         updatedAt: row.updated_at,

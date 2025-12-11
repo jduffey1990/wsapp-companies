@@ -18,6 +18,7 @@ function rowToCompany(row) {
         id: row.id,
         name: row.name,
         status: row.status,
+        profile: row.status,
         deletedAt: (_a = row.deleted_at) !== null && _a !== void 0 ? _a : null,
         createdAt: row.created_at,
         updatedAt: row.updated_at,

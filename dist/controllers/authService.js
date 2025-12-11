@@ -19,13 +19,21 @@ class AuthService {
         return __awaiter(this, void 0, void 0, function* () {
             var _a, _b, _c;
             const payload = (_c = (_b = (_a = decoded === null || decoded === void 0 ? void 0 : decoded.decoded) === null || _a === void 0 ? void 0 : _a.payload) !== null && _b !== void 0 ? _b : decoded === null || decoded === void 0 ? void 0 : decoded.payload) !== null && _c !== void 0 ? _c : decoded;
-            const userId = payload === null || payload === void 0 ? void 0 : payload.id;
-            if (!userId)
+            // Validate required fields
+            if (!(payload === null || payload === void 0 ? void 0 : payload.id) || !(payload === null || payload === void 0 ? void 0 : payload.email) || !(payload === null || payload === void 0 ? void 0 : payload.companyId)) {
                 return { isValid: false };
-            // Return whatever's in the JWT payload
+            }
+            // The JWT signature is already verified by Hapi's JWT plugin
+            // The expiration is already checked by Hapi (maxAgeSec setting)
+            // So if we got here, the token is cryptographically valid and not expired
             return {
                 isValid: true,
-                credentials: payload
+                credentials: {
+                    userId: payload.id,
+                    email: payload.email,
+                    companyId: payload.companyId,
+                    name: payload.name
+                }
             };
         });
     }

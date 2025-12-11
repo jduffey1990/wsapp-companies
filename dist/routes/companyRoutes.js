@@ -88,6 +88,7 @@ exports.companyRoutes = [
                 const newCompany = yield companyService_1.CompanyService.createCompany({
                     name: payload.name,
                     status: (_a = payload.status) !== null && _a !== void 0 ? _a : 'active',
+                    profile: payload.profile
                 });
                 return h.response(newCompany).code(201);
             }
@@ -99,6 +100,98 @@ exports.companyRoutes = [
             }
         }),
         options: { auth: false },
+    },
+    {
+        method: 'POST',
+        path: '/create-company-with-user',
+        handler: (request, h) => __awaiter(void 0, void 0, void 0, function* () {
+            var _a;
+            const payload = request.payload;
+            let createdCompany = null;
+            try {
+                // Step 1: Create company locally
+                createdCompany = yield companyService_1.CompanyService.createCompany({
+                    name: payload.company.name,
+                    status: (_a = payload.company.status) !== null && _a !== void 0 ? _a : 'active',
+                    profile: payload.company.profile
+                });
+                // Step 2: Call users microservice via fetch
+                // Use host.docker.internal to access host's localhost (like frontend does)
+                const usersServiceUrl = process.env.USERS_SERVICE_URL || 'http://host.docker.internal:3001';
+                const fullUrl = `${usersServiceUrl}/create-user`;
+                console.log('Attempting to call users service:', {
+                    url: fullUrl,
+                    companyId: createdCompany.id
+                });
+                const userResponse = yield fetch(fullUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        email: payload.user.email,
+                        password: payload.user.password,
+                        name: payload.user.name,
+                        firstName: payload.user.firstName,
+                        lastName: payload.user.lastName,
+                        companyId: createdCompany.id,
+                        captchaToken: payload.user.captchaToken
+                    })
+                });
+                console.log('Users service response status:', userResponse.status);
+                // Handle non-2xx responses
+                if (!userResponse.ok) {
+                    const errorData = yield userResponse.json().catch(() => ({ error: 'Unknown error' }));
+                    // Throw specific error messages from users service
+                    if (userResponse.status === 409) {
+                        throw new Error(errorData.error || 'An account with this email already exists');
+                    }
+                    else if (userResponse.status === 400) {
+                        throw new Error(errorData.error || 'Invalid user data provided');
+                    }
+                    else if (userResponse.status === 403) {
+                        throw new Error(errorData.error || 'Security verification failed');
+                    }
+                    else {
+                        throw new Error(errorData.error || `User service returned ${userResponse.status}`);
+                    }
+                }
+                const user = yield userResponse.json();
+                // Both succeeded!
+                return h.response({
+                    company: createdCompany,
+                    user: user
+                }).code(201);
+            }
+            catch (error) {
+                console.error('Create company with user error:', {
+                    companyCreated: !!createdCompany,
+                    companyId: createdCompany === null || createdCompany === void 0 ? void 0 : createdCompany.id,
+                    error: error.message,
+                    cause: error.cause
+                });
+                // Step 3: Compensate - delete company if user creation failed
+                if (createdCompany) {
+                    try {
+                        yield companyService_1.CompanyService.hardDelete(createdCompany.id);
+                        console.log('Successfully rolled back company creation:', createdCompany.id);
+                    }
+                    catch (deleteError) {
+                        console.error('CRITICAL: Failed to delete orphaned company', {
+                            companyId: createdCompany.id,
+                            companyName: createdCompany.name,
+                            originalError: error.message,
+                            deleteError: deleteError.message
+                        });
+                    }
+                }
+                // Return user-friendly error messages
+                return h.response({
+                    error: error.message || 'Failed to create company and user'
+                }).code(500);
+            }
+        }),
+        options: { auth: false }
     },
     // ============== COMPANY CODE ROUTES ==============
     /**
