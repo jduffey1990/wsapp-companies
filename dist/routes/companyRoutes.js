@@ -268,7 +268,7 @@ exports.companyRoutes = [
                 }
                 // Send the email
                 yield emailService.sendInviteEmail({
-                    to: payload.email,
+                    to: payload.email.toLowerCase(),
                     subject: payload.subject,
                     body: payload.body,
                     code: payload.code,
