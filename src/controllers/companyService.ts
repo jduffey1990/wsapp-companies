@@ -1,6 +1,6 @@
 // src/controllers/companyService.ts
 import { randomUUID } from 'crypto';
-import { Company, CompanyCode } from '../models/company';
+import { Company, CompanyCode, CompanyProfile } from '../models/company';
 import { PostgresService } from './postgres.service';
 
 
@@ -40,7 +40,7 @@ export class CompanyService {
   public static async createCompany(input: {
     name: string;
     status?: string;
-    profile?: string;  
+    profile?: CompanyProfile;  
   }): Promise<Company> {
     const db = PostgresService.getInstance();
     const status = input.status ?? 'active';
@@ -122,6 +122,44 @@ export class CompanyService {
     }
 
     return mapRowToCompany(rows[0]);
+  }
+
+  /**
+   * Mark company profile as verified (call after wizard completion)
+   */
+  public static async markProfileAsVerified(companyId: string): Promise<Company> {
+    const db = PostgresService.getInstance();
+    
+    const company = await CompanyService.findCompanyById(companyId);
+    if (!company) {
+      throw new Error('Company not found');
+    }
+    
+    const updatedProfile = {
+      ...(company.profile as any),
+      verified: true,
+      verifiedAt: new Date().toISOString()
+    };
+    
+    const { rows } = await db.query(
+      `UPDATE companies
+      SET profile = $2,
+          updated_at = NOW()
+      WHERE id = $1::uuid
+      RETURNING id, name, status, profile, deleted_at, created_at, updated_at`,
+      [companyId, JSON.stringify(updatedProfile)]
+    );
+    
+    if (!rows[0]) throw new Error('Company not found');
+    return mapRowToCompany(rows[0]);
+  }
+
+  /**
+   * Check if company profile is verified
+   */
+  public static async isProfileVerified(companyId: string): Promise<boolean> {
+    const company = await CompanyService.findCompanyById(companyId);
+    return (company?.profile as any)?.verified || false;
   }
 
   /**

@@ -2,6 +2,8 @@
 import { Request, ResponseToolkit, ServerRoute } from '@hapi/hapi';
 import { CompanyService } from '../controllers/companyService';
 import { EmailService } from '../controllers/email.service';
+import { mapPreviewToProfile } from '../lib/profileMapper';
+
 
 const emailService = new EmailService();
 
@@ -84,7 +86,7 @@ export const companyRoutes: ServerRoute[] = [
     path: '/create-company',
     handler: async (request: Request, h: ResponseToolkit) => {
       try {
-        const payload = request.payload as { name: string; status?: string; profile?: string };
+        const payload = request.payload as { name: string; status?: string; profile?: any };
 
         if (!payload.name) {
           return h.response({ error: 'Company name is required' }).code(400);
@@ -108,107 +110,113 @@ export const companyRoutes: ServerRoute[] = [
   },
 
   {
-  method: 'POST',
-  path: '/create-company-with-user',
-  handler: async (request: Request, h: ResponseToolkit) => {
-    const payload = request.payload as {
-      company: { name: string; status?: string; profile?: any };
-      user: any;
-    };
+    method: 'POST',
+    path: '/create-company-with-user',
+    handler: async (request: Request, h: ResponseToolkit) => {
+      const payload = request.payload as {
+        company: { 
+          name: string; 
+          status?: string; 
+          profile?: any; // Raw preview data from frontend
+        };
+        user: any;
+      };
 
-    let createdCompany = null;
-    
-    try {
-      // Step 1: Create company locally
-      createdCompany = await CompanyService.createCompany({
-        name: payload.company.name,
-        status: payload.company.status ?? 'active',
-        profile: payload.company.profile
-      });
+      let createdCompany = null;
       
-      // Step 2: Call users microservice via fetch
-      // Use host.docker.internal to access host's localhost (like frontend does)
-      const usersServiceUrl = process.env.USERS_SERVICE_URL || 'http://host.docker.internal:3001';
-      const fullUrl = `${usersServiceUrl}/create-user`;
-      
-      console.log('Attempting to call users service:', {
-        url: fullUrl,
-        companyId: createdCompany.id
-      });
-      
-      const userResponse = await fetch(fullUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: payload.user.email,
-          password: payload.user.password,
-          name: payload.user.name,
-          firstName: payload.user.firstName,
-          lastName: payload.user.lastName,
-          companyId: createdCompany.id,
-          captchaToken: payload.user.captchaToken
-        })
-      });
-      
-      console.log('Users service response status:', userResponse.status);
-      
-      // Handle non-2xx responses
-      if (!userResponse.ok) {
-        const errorData = await userResponse.json().catch(() => ({ error: 'Unknown error' }));
+      try {
+        // Step 1: Map raw preview data to structured CompanyProfile
+        const structuredProfile = payload.company.profile 
+          ? mapPreviewToProfile(payload.company.profile)
+          : undefined;
+
+        // Step 2: Create company with structured profile
+        createdCompany = await CompanyService.createCompany({
+          name: payload.company.name,
+          status: payload.company.status ?? 'active',
+          profile: structuredProfile // Now properly structured!
+        });
         
-        // Throw specific error messages from users service
-        if (userResponse.status === 409) {
-          throw new Error(errorData.error || 'An account with this email already exists');
-        } else if (userResponse.status === 400) {
-          throw new Error(errorData.error || 'Invalid user data provided');
-        } else if (userResponse.status === 403) {
-          throw new Error(errorData.error || 'Security verification failed');
-        } else {
-          throw new Error(errorData.error || `User service returned ${userResponse.status}`);
-        }
-      }
-      
-      const user = await userResponse.json();
-      
-      // Both succeeded!
-      return h.response({ 
-        company: createdCompany, 
-        user: user 
-      }).code(201);
-      
-    } catch (error: any) {
-      console.error('Create company with user error:', {
-        companyCreated: !!createdCompany,
-        companyId: createdCompany?.id,
-        error: error.message,
-        cause: error.cause
-      });
-      
-      // Step 3: Compensate - delete company if user creation failed
-      if (createdCompany) {
-        try {
-          await CompanyService.hardDelete(createdCompany.id);
-          console.log('Successfully rolled back company creation:', createdCompany.id);
-        } catch (deleteError: any) {
-          console.error('CRITICAL: Failed to delete orphaned company', {
+        // Step 3: Call users microservice via fetch
+        const usersServiceUrl = process.env.USERS_SERVICE_URL || 'http://host.docker.internal:3001';
+        const fullUrl = `${usersServiceUrl}/create-user`;
+        
+        console.log('Attempting to call users service:', {
+          url: fullUrl,
+          companyId: createdCompany.id
+        });
+        
+        const userResponse = await fetch(fullUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            email: payload.user.email,
+            password: payload.user.password,
+            name: payload.user.name,
+            firstName: payload.user.firstName,
+            lastName: payload.user.lastName,
             companyId: createdCompany.id,
-            companyName: createdCompany.name,
-            originalError: error.message,
-            deleteError: deleteError.message
-          });
+            captchaToken: payload.user.captchaToken
+          })
+        });
+        
+        console.log('Users service response status:', userResponse.status);
+        
+        // Handle non-2xx responses
+        if (!userResponse.ok) {
+          const errorData = await userResponse.json().catch(() => ({ error: 'Unknown error' }));
+          
+          if (userResponse.status === 409) {
+            throw new Error(errorData.error || 'An account with this email already exists');
+          } else if (userResponse.status === 400) {
+            throw new Error(errorData.error || 'Invalid user data provided');
+          } else if (userResponse.status === 403) {
+            throw new Error(errorData.error || 'Security verification failed');
+          } else {
+            throw new Error(errorData.error || `User service returned ${userResponse.status}`);
+          }
         }
+        
+        const user = await userResponse.json();
+        
+        // Both succeeded!
+        return h.response({ 
+          company: createdCompany, 
+          user: user 
+        }).code(201);
+        
+      } catch (error: any) {
+        console.error('Create company with user error:', {
+          companyCreated: !!createdCompany,
+          companyId: createdCompany?.id,
+          error: error.message,
+          cause: error.cause
+        });
+        
+        // Compensate - delete company if user creation failed
+        if (createdCompany) {
+          try {
+            await CompanyService.hardDelete(createdCompany.id);
+            console.log('Successfully rolled back company creation:', createdCompany.id);
+          } catch (deleteError: any) {
+            console.error('CRITICAL: Failed to delete orphaned company', {
+              companyId: createdCompany.id,
+              companyName: createdCompany.name,
+              originalError: error.message,
+              deleteError: deleteError.message
+            });
+          }
+        }
+        
+        return h.response({ 
+          error: error.message || 'Failed to create company and user'
+        }).code(500);
       }
-      
-      // Return user-friendly error messages
-      return h.response({ 
-        error: error.message || 'Failed to create company and user'
-      }).code(500);
-    }
+    },
+    options: { auth: false }
   },
-  options: { auth: false }
-},
 
   // ============== COMPANY CODE ROUTES ==============
 
