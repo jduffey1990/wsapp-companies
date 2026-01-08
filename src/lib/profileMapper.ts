@@ -8,9 +8,18 @@ import { CompanyProfile } from '../models/company';
  * Used when creating a company from frontend preview data.
  */
 export function mapPreviewToProfile(preview: any): CompanyProfile {
+
+  console.log("here is preview", preview)
   if (!preview || typeof preview !== 'object') {
     return createEmptyProfile();
   }
+
+  // Extract social media links from socialLinks array
+  const socialMedia = extractSocialLinks(preview.socialLinks || []);
+
+  // Get industry from categories or fallback to industry field
+  const categories = preview.categories || preview.enrichment?.categories || [];
+  const industry = preview.industry || (categories.length > 0 ? categories.join(', ') : undefined);
 
   const profile: CompanyProfile = {
     // Start as unverified (user hasn't confirmed yet)
@@ -21,12 +30,14 @@ export function mapPreviewToProfile(preview: any): CompanyProfile {
       brandName: preview.name || undefined,
       logo: preview.image || preview.favicon || undefined,
       tagline: preview.tagline || undefined,
-      description: preview.shortDescription || preview.description || undefined,
+      description: preview.shortDescription || preview.description || preview.meta?.description || undefined,
       productCategory: preview.productCategory || undefined,
-      industry: preview.industry || undefined,
+      industry: industry,
+      categories: categories.length > 0 ? categories : undefined,
       hqLocation: preview.headquartersAddress || undefined,
       contactEmail: preview.email || undefined,
-      website: preview.website || undefined,
+      website: preview.website || preview.url || undefined,
+      foundingYear: preview.foundingYear || preview.enrichment?.foundingYear || undefined,
     },
     
     // MARKET POSITIONING
@@ -52,7 +63,7 @@ export function mapPreviewToProfile(preview: any): CompanyProfile {
     
     // BRAND STYLE
     brandStyle: {
-      primaryColor: preview.primaryColor || undefined,
+      primaryColor: preview.primaryColor || preview.meta?.themeColor || undefined,
       secondaryColor: preview.secondaryColor || undefined,
       brandTone: preview.brandTone || undefined,
       packagingStyle: preview.packagingStyle || undefined,
@@ -60,9 +71,12 @@ export function mapPreviewToProfile(preview: any): CompanyProfile {
     
     // SOCIAL MEDIA
     socialMedia: {
-      instagram: preview.instagram || preview.socialMedia?.instagram || undefined,
-      facebook: preview.facebook || preview.socialMedia?.facebook || undefined,
-      linkedin: preview.linkedin || preview.socialMedia?.linkedin || preview.url || undefined,
+      instagram: socialMedia.instagram || preview.instagram || undefined,
+      facebook: socialMedia.facebook || preview.facebook || undefined,
+      linkedin: socialMedia.linkedin || preview.linkedin || undefined,
+      twitter: socialMedia.twitter || undefined,
+      youtube: socialMedia.youtube || undefined,
+      tiktok: socialMedia.tiktok || undefined,
     },
     
     // Calculate initial completion score
@@ -71,6 +85,38 @@ export function mapPreviewToProfile(preview: any): CompanyProfile {
 
   // Clean up: remove empty nested objects
   return cleanupProfile(profile);
+}
+
+/**
+ * Extract social media links from socialLinks array
+ * Parses URLs to determine platform and extract clean links
+ */
+function extractSocialLinks(socialLinks: string[]): Record<string, string> {
+  const result: Record<string, string> = {};
+  
+  if (!Array.isArray(socialLinks)) return result;
+  
+  for (const link of socialLinks) {
+    if (!link || typeof link !== 'string') continue;
+    
+    const lowerLink = link.toLowerCase();
+    
+    if (lowerLink.includes('instagram.com')) {
+      result.instagram = link;
+    } else if (lowerLink.includes('facebook.com')) {
+      result.facebook = link;
+    } else if (lowerLink.includes('linkedin.com')) {
+      result.linkedin = link;
+    } else if (lowerLink.includes('twitter.com') || lowerLink.includes('x.com')) {
+      result.twitter = link;
+    } else if (lowerLink.includes('youtube.com')) {
+      result.youtube = link;
+    } else if (lowerLink.includes('tiktok.com')) {
+      result.tiktok = link;
+    }
+  }
+  
+  return result;
 }
 
 /**
@@ -93,19 +139,29 @@ function createEmptyProfile(): CompanyProfile {
  * Calculate completion score based on filled fields
  */
 function calculateCompletionScore(preview: any): number {
+  const socialLinks = extractSocialLinks(preview.socialLinks || []);
+  const categories = preview.categories || preview.enrichment?.categories || [];
+  
   const fields = [
+    // Core identity (most important)
     preview.name,
-    preview.website,
-    preview.shortDescription || preview.description,
+    preview.website || preview.url,
+    preview.shortDescription || preview.description || preview.meta?.description,
     preview.headquartersAddress,
     preview.email,
     preview.phone,
-    preview.image,
-    preview.industry,
-    preview.productCategory,
-    preview.instagram || preview.socialMedia?.instagram,
-    preview.facebook || preview.socialMedia?.facebook,
-    preview.linkedin || preview.socialMedia?.linkedin,
+    preview.image || preview.favicon,
+    preview.industry || (categories.length > 0),
+    preview.foundingYear || preview.enrichment?.foundingYear,
+    // Social media
+    socialLinks.instagram || preview.instagram,
+    socialLinks.facebook || preview.facebook,
+    socialLinks.linkedin || preview.linkedin,
+    socialLinks.twitter,
+    socialLinks.youtube,
+    socialLinks.tiktok,
+    // Brand style
+    preview.primaryColor || preview.meta?.themeColor,
   ];
 
   const filledCount = fields.filter(field => {

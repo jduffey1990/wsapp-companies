@@ -8,9 +8,11 @@ export interface CoreIdentity {
   description?: string;
   productCategory?: string; // e.g., "Men's Apparel", "Women's Beauty"
   industry?: string; // e.g., "Fashion", "Beauty"
+  categories?: string[]; // e.g., ["Retail", "Apparel", "E-commerce"]
   hqLocation?: string;
   contactEmail?: string;
   website?: string;
+  foundingYear?: number; // e.g., 2011
 }
 
 // ============ MARKET POSITIONING ============
@@ -47,6 +49,9 @@ export interface SocialMedia {
   instagram?: string;
   facebook?: string;
   linkedin?: string;
+  twitter?: string;
+  youtube?: string;
+  tiktok?: string;
 }
 
 // ============ COMPANY PROFILE ============
