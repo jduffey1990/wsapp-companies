@@ -12,6 +12,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.companyRoutes = void 0;
 const companyService_1 = require("../controllers/companyService");
 const email_service_1 = require("../controllers/email.service");
+const profileMapper_1 = require("../lib/profileMapper");
 const emailService = new email_service_1.EmailService();
 exports.companyRoutes = [
     // Get all companies
@@ -74,6 +75,27 @@ exports.companyRoutes = [
         }),
         options: { auth: 'jwt' },
     },
+    {
+        method: 'PATCH',
+        path: '/edit-company-profile',
+        handler: (request, h) => __awaiter(void 0, void 0, void 0, function* () {
+            try {
+                const payload = request.payload;
+                if (!payload.companyId) {
+                    return h.response({ error: 'Company ID is required' }).code(400);
+                }
+                if (!payload.profile || Object.keys(payload.profile).length === 0) {
+                    return h.response({ error: 'Profile updates are required' }).code(400);
+                }
+                const updatedCompany = yield companyService_1.CompanyService.updateCompanyProfile(payload.companyId, payload.profile);
+                return h.response(updatedCompany).code(200);
+            }
+            catch (error) {
+                return h.response({ error: error.message }).code(500);
+            }
+        }),
+        options: { auth: 'jwt' },
+    },
     // Create a new company
     {
         method: 'POST',
@@ -109,17 +131,23 @@ exports.companyRoutes = [
             const payload = request.payload;
             let createdCompany = null;
             try {
-                // Step 1: Create company locally
+                // Step 1: Map raw preview data to structured CompanyProfile
+                const structuredProfile = payload.company.profile
+                    ? (0, profileMapper_1.mapPreviewToProfile)(payload.company.profile)
+                    : undefined;
+                // Step 2: Create company with structured profile
                 createdCompany = yield companyService_1.CompanyService.createCompany({
                     name: payload.company.name,
                     status: (_a = payload.company.status) !== null && _a !== void 0 ? _a : 'active',
-                    profile: payload.company.profile
+                    profile: structuredProfile // Now properly structured!
                 });
-                // Step 2: Call users microservice via fetch
-                // Use host.docker.internal to access host's localhost (like frontend does)
+                // Step 3: Call users microservice via fetch
                 const usersServiceUrl = process.env.USERS_SERVICE_URL || 'http://host.docker.internal:3001';
                 const fullUrl = `${usersServiceUrl}/create-user`;
-            
+                console.log('Attempting to call users service:', {
+                    url: fullUrl,
+                    companyId: createdCompany.id
+                });
                 const userResponse = yield fetch(fullUrl, {
                     method: 'POST',
                     headers: {
@@ -135,11 +163,10 @@ exports.companyRoutes = [
                         captchaToken: payload.user.captchaToken
                     })
                 });
-                
+                console.log('Users service response status:', userResponse.status);
                 // Handle non-2xx responses
                 if (!userResponse.ok) {
                     const errorData = yield userResponse.json().catch(() => ({ error: 'Unknown error' }));
-                    // Throw specific error messages from users service
                     if (userResponse.status === 409) {
                         throw new Error(errorData.error || 'An account with this email already exists');
                     }
@@ -167,7 +194,7 @@ exports.companyRoutes = [
                     error: error.message,
                     cause: error.cause
                 });
-                // Step 3: Compensate - delete company if user creation failed
+                // Compensate - delete company if user creation failed
                 if (createdCompany) {
                     try {
                         yield companyService_1.CompanyService.hardDelete(createdCompany.id);
@@ -182,7 +209,6 @@ exports.companyRoutes = [
                         });
                     }
                 }
-                // Return user-friendly error messages
                 return h.response({
                     error: error.message || 'Failed to create company and user'
                 }).code(500);

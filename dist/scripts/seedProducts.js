@@ -30,6 +30,13 @@ function rowToProduct(row) {
         images: row.images,
         status: row.status,
         sku: row.sku,
+        // Verification fields (added)
+        verificationStatus: row.verification_status || 'unverified',
+        scraped: row.scraped || false,
+        confidenceScore: row.confidence_score ? parseFloat(row.confidence_score) : null,
+        scrapedFrom: row.scraped_from,
+        scrapedAt: row.scraped_at ? new Date(row.scraped_at) : null,
+        // Timestamps
         createdAt: new Date(row.created_at),
         updatedAt: new Date(row.updated_at),
         deletedAt: row.deleted_at ? new Date(row.deleted_at) : null,

@@ -12,6 +12,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.CompanyService = void 0;
 // src/controllers/companyService.ts
 const crypto_1 = require("crypto");
+const company_1 = require("../models/company");
 const postgres_service_1 = require("./postgres.service");
 class CompanyService {
     /**
@@ -20,7 +21,7 @@ class CompanyService {
     static findAllCompanies() {
         return __awaiter(this, void 0, void 0, function* () {
             const db = postgres_service_1.PostgresService.getInstance();
-            const { rows } = yield db.query(`SELECT id, name, status, deleted_at, created_at, updated_at
+            const { rows } = yield db.query(`SELECT id, name, status, deleted_at, created_at, updated_at, profile
        FROM companies
        ORDER BY created_at DESC`);
             return rows.map(mapRowToCompany);
@@ -32,7 +33,7 @@ class CompanyService {
     static findCompanyById(id) {
         return __awaiter(this, void 0, void 0, function* () {
             const db = postgres_service_1.PostgresService.getInstance();
-            const { rows } = yield db.query(`SELECT id, name, status, deleted_at, created_at, updated_at
+            const { rows } = yield db.query(`SELECT id, name, status, deleted_at, created_at, updated_at, profile
          FROM companies
         WHERE id = $1::uuid
         LIMIT 1`, [id]);
@@ -95,6 +96,36 @@ class CompanyService {
             return mapRowToCompany(rows[0]);
         });
     }
+    static updateCompanyProfile(companyId, profileUpdates) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const db = postgres_service_1.PostgresService.getInstance();
+            if (!profileUpdates || Object.keys(profileUpdates).length === 0) {
+                throw new Error('No profile fields to update');
+            }
+            // Calculate completion score on what they're sending
+            profileUpdates.completionScore = (0, company_1.calculateCompletionScore)(profileUpdates);
+            // Mark as verified since they hit submit
+            profileUpdates.verified = true;
+            profileUpdates.verifiedAt = new Date().toISOString();
+            profileUpdates.lastUpdatedAt = new Date().toISOString();
+            const query = `
+      UPDATE companies
+      SET profile = $1::jsonb,
+          updated_at = NOW()
+      WHERE id = $2::uuid
+      RETURNING id, name, status, deleted_at, created_at, updated_at, profile
+    `;
+            const values = [
+                JSON.stringify(profileUpdates),
+                companyId
+            ];
+            const { rows } = yield db.query(query, values);
+            if (!rows[0]) {
+                throw new Error('Company not found');
+            }
+            return mapRowToCompany(rows[0]);
+        });
+    }
     /** Flip company status to 'active' (only from 'invited') and return the company. */
     static activateCompany(companyId) {
         return __awaiter(this, void 0, void 0, function* () {
@@ -108,6 +139,16 @@ class CompanyService {
                 throw new Error('Activation failed: company not found or already active');
             }
             return mapRowToCompany(rows[0]);
+        });
+    }
+    /**
+     * Check if company profile is verified
+     */
+    static isProfileVerified(companyId) {
+        return __awaiter(this, void 0, void 0, function* () {
+            var _a;
+            const company = yield CompanyService.findCompanyById(companyId);
+            return ((_a = company === null || company === void 0 ? void 0 : company.profile) === null || _a === void 0 ? void 0 : _a.verified) || false;
         });
     }
     /**

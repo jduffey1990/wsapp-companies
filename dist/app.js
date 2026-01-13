@@ -20,6 +20,9 @@ const dotenv_1 = __importDefault(require("dotenv"));
 const authService_1 = require("./controllers/authService");
 const postgres_service_1 = require("./controllers/postgres.service");
 const companyRoutes_1 = require("./routes/companyRoutes");
+const productRoutes_1 = require("./routes/productRoutes");
+const conversationRoutes_1 = require("./routes/conversationRoutes");
+const recommendationRoutes_1 = require("./routes/recommendationRoutes");
 dotenv_1.default.config();
 const NODE_ENV = process.env.NODE_ENV || 'development';
 const IS_LAMBDA = NODE_ENV === 'production' || !!process.env.LAMBDA_TASK_ROOT;
@@ -32,7 +35,10 @@ let cachedLambdaHandler;
 function asServerRoutes(routes) { return routes; }
 // If your imported route arrays are NOT typed, you can fix them here:
 const allRoutes = asServerRoutes([
-    ...companyRoutes_1.companyRoutes
+    ...companyRoutes_1.companyRoutes,
+    ...productRoutes_1.productRoutes,
+    ...conversationRoutes_1.conversationRoutes,
+    ...recommendationRoutes_1.recommendationRoutes
 ]);
 function buildServer() {
     return __awaiter(this, void 0, void 0, function* () {
