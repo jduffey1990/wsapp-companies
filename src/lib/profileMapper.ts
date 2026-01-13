@@ -8,8 +8,6 @@ import { CompanyProfile } from '../models/company';
  * Used when creating a company from frontend preview data.
  */
 export function mapPreviewToProfile(preview: any): CompanyProfile {
-
-  console.log("here is preview", preview)
   if (!preview || typeof preview !== 'object') {
     return createEmptyProfile();
   }

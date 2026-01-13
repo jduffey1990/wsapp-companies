@@ -119,10 +119,7 @@ exports.companyRoutes = [
                 // Use host.docker.internal to access host's localhost (like frontend does)
                 const usersServiceUrl = process.env.USERS_SERVICE_URL || 'http://host.docker.internal:3001';
                 const fullUrl = `${usersServiceUrl}/create-user`;
-                console.log('Attempting to call users service:', {
-                    url: fullUrl,
-                    companyId: createdCompany.id
-                });
+            
                 const userResponse = yield fetch(fullUrl, {
                     method: 'POST',
                     headers: {
@@ -138,7 +135,7 @@ exports.companyRoutes = [
                         captchaToken: payload.user.captchaToken
                     })
                 });
-                console.log('Users service response status:', userResponse.status);
+                
                 // Handle non-2xx responses
                 if (!userResponse.ok) {
                     const errorData = yield userResponse.json().catch(() => ({ error: 'Unknown error' }));

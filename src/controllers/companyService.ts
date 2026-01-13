@@ -1,6 +1,6 @@
 // src/controllers/companyService.ts
 import { randomUUID } from 'crypto';
-import { Company, CompanyCode, CompanyProfile } from '../models/company';
+import { Company, CompanyCode, CompanyProfile, calculateCompletionScore } from '../models/company';
 import { PostgresService } from './postgres.service';
 
 
@@ -11,7 +11,7 @@ export class CompanyService {
   public static async findAllCompanies(): Promise<Company[]> {
     const db = PostgresService.getInstance();
     const { rows } = await db.query(
-      `SELECT id, name, status, deleted_at, created_at, updated_at
+      `SELECT id, name, status, deleted_at, created_at, updated_at, profile
        FROM companies
        ORDER BY created_at DESC`
     );
@@ -24,7 +24,7 @@ export class CompanyService {
   public static async findCompanyById(id: string): Promise<Company | null> {
     const db = PostgresService.getInstance();
     const { rows } = await db.query(
-      `SELECT id, name, status, deleted_at, created_at, updated_at
+      `SELECT id, name, status, deleted_at, created_at, updated_at, profile
          FROM companies
         WHERE id = $1::uuid
         LIMIT 1`,
@@ -105,6 +105,46 @@ export class CompanyService {
     return mapRowToCompany(rows[0]);
   }
 
+  public static async updateCompanyProfile(
+    companyId: string,
+    profileUpdates: Partial<CompanyProfile>
+  ): Promise<Company> {
+    const db = PostgresService.getInstance();
+
+    if (!profileUpdates || Object.keys(profileUpdates).length === 0) {
+      throw new Error('No profile fields to update');
+    }
+
+    // Calculate completion score on what they're sending
+    profileUpdates.completionScore = calculateCompletionScore(profileUpdates as CompanyProfile);
+
+    // Mark as verified since they hit submit
+    profileUpdates.verified = true;
+    profileUpdates.verifiedAt = new Date().toISOString();
+    profileUpdates.lastUpdatedAt = new Date().toISOString();
+
+    const query = `
+      UPDATE companies
+      SET profile = $1::jsonb,
+          updated_at = NOW()
+      WHERE id = $2::uuid
+      RETURNING id, name, status, deleted_at, created_at, updated_at, profile
+    `;
+
+    const values = [
+      JSON.stringify(profileUpdates),
+      companyId
+    ];
+
+    const { rows } = await db.query(query, values);
+
+    if (!rows[0]) {
+      throw new Error('Company not found');
+    }
+
+    return mapRowToCompany(rows[0]);
+  }
+
   /** Flip company status to 'active' (only from 'invited') and return the company. */
   public static async activateCompany(companyId: string): Promise<Company> {
     const db = PostgresService.getInstance();
@@ -121,36 +161,6 @@ export class CompanyService {
       throw new Error('Activation failed: company not found or already active');
     }
 
-    return mapRowToCompany(rows[0]);
-  }
-
-  /**
-   * Mark company profile as verified (call after wizard completion)
-   */
-  public static async markProfileAsVerified(companyId: string): Promise<Company> {
-    const db = PostgresService.getInstance();
-    
-    const company = await CompanyService.findCompanyById(companyId);
-    if (!company) {
-      throw new Error('Company not found');
-    }
-    
-    const updatedProfile = {
-      ...(company.profile as any),
-      verified: true,
-      verifiedAt: new Date().toISOString()
-    };
-    
-    const { rows } = await db.query(
-      `UPDATE companies
-      SET profile = $2,
-          updated_at = NOW()
-      WHERE id = $1::uuid
-      RETURNING id, name, status, profile, deleted_at, created_at, updated_at`,
-      [companyId, JSON.stringify(updatedProfile)]
-    );
-    
-    if (!rows[0]) throw new Error('Company not found');
     return mapRowToCompany(rows[0]);
   }
 

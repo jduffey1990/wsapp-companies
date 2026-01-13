@@ -3,7 +3,7 @@ import { Request, ResponseToolkit, ServerRoute } from '@hapi/hapi';
 import { CompanyService } from '../controllers/companyService';
 import { EmailService } from '../controllers/email.service';
 import { mapPreviewToProfile } from '../lib/profileMapper';
-
+import { CompanyProfile } from '../models/company';
 
 const emailService = new EmailService();
 
@@ -72,6 +72,37 @@ export const companyRoutes: ServerRoute[] = [
           payload.companyId,
           updates
         );
+        return h.response(updatedCompany).code(200);
+      } catch (error: any) {
+        return h.response({ error: error.message }).code(500);
+      }
+    },
+    options: { auth: 'jwt' },
+  },
+
+  {
+    method: 'PATCH',
+    path: '/edit-company-profile',
+    handler: async (request: Request, h: ResponseToolkit) => {
+      try {
+        const payload = request.payload as {
+          companyId: string;
+          profile: Partial<CompanyProfile>;
+        };
+
+        if (!payload.companyId) {
+          return h.response({ error: 'Company ID is required' }).code(400);
+        }
+
+        if (!payload.profile || Object.keys(payload.profile).length === 0) {
+          return h.response({ error: 'Profile updates are required' }).code(400);
+        }
+
+        const updatedCompany = await CompanyService.updateCompanyProfile(
+          payload.companyId,
+          payload.profile
+        );
+
         return h.response(updatedCompany).code(200);
       } catch (error: any) {
         return h.response({ error: error.message }).code(500);

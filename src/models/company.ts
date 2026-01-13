@@ -136,9 +136,11 @@ export function calculateCompletionScore(profile: CompanyProfile): number {
     profile.coreIdentity?.description,
     profile.coreIdentity?.productCategory,
     profile.coreIdentity?.industry,
+    profile.coreIdentity?.categories,        
     profile.coreIdentity?.hqLocation,
     profile.coreIdentity?.contactEmail,
     profile.coreIdentity?.website,
+    profile.coreIdentity?.foundingYear,      
     // Market Positioning (weight: 25%)
     profile.marketPositioning?.priceTier,
     profile.marketPositioning?.salesChannels,
@@ -160,6 +162,9 @@ export function calculateCompletionScore(profile: CompanyProfile): number {
     profile.socialMedia?.instagram,
     profile.socialMedia?.facebook,
     profile.socialMedia?.linkedin,
+    profile.socialMedia?.twitter,            
+    profile.socialMedia?.youtube,            
+    profile.socialMedia?.tiktok,             
   ];
 
   const filledFields = allFields.filter(field => {
@@ -172,15 +177,3 @@ export function calculateCompletionScore(profile: CompanyProfile): number {
   return Math.round((filledFields / allFields.length) * 100);
 }
 
-/**
- * Mark company profile as verified (call this after wizard completion)
- */
-export function markProfileAsVerified(profile: CompanyProfile): CompanyProfile {
-  return {
-    ...profile,
-    verified: true,
-    verifiedAt: new Date().toISOString(),
-    lastUpdatedAt: new Date().toISOString(),
-    completionScore: calculateCompletionScore(profile)
-  };
-}
