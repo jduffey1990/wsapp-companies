@@ -13,6 +13,7 @@
     "migrate:reset": "dotenv -e .env -- node-pg-migrate reset -m src/migrations",
     "seed:companies": "dotenv -e .env -- npm run build && node dist/scripts/seedCompanies.js",
     "seed:products": "dotenv -e .env -- npm run build && node dist/scripts/seedProducts.js",
+    "seed:retailers": "dotenv -e .env -- npm run build && node dist/scripts/seedRetailers.js",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",

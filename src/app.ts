@@ -10,6 +10,7 @@ import { companyRoutes } from './routes/companyRoutes'
 import { productRoutes } from './routes/productRoutes'
 import { conversationRoutes } from './routes/conversationRoutes'
 import { recommendationRoutes } from './routes/recommendationRoutes'
+import { retailerRoutes } from './routes/retailerRoutes';
 
 dotenv.config()
 
@@ -30,7 +31,8 @@ const allRoutes = asServerRoutes([
   ...companyRoutes as unknown as ServerRoute[],
   ...productRoutes as unknown as ServerRoute[],
   ...conversationRoutes as unknown as ServerRoute[],
-  ...recommendationRoutes as unknown as ServerRoute[]
+  ...recommendationRoutes as unknown as ServerRoute[],
+  ...retailerRoutes as unknown as ServerRoute[]
 ])
 
 
